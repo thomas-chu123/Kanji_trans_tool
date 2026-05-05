@@ -121,6 +121,7 @@ def get_translation(translation_id: int) -> Optional[Dict]:
             t.input_text,
             t.output_html,
             t.processed_data,
+            t.chinese_translation,
             t.created_at,
             t.updated_at,
             CASE WHEN f.id IS NOT NULL THEN 1 ELSE 0 END as is_favorite,

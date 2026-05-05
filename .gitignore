@@ -2,7 +2,10 @@
 /temp
 *.pyc
 __pycache__/
-/db
+# 忽略数据库文件，但保留初始化脚本
+/db/*.db
+/db/*.sqlite
+/db/*.sqlite3
 .DS_Store
 .idea/
 .vscode/

@@ -246,12 +246,15 @@ async def convert_text(
         output_html = generate_ruby_html(processed_data, simplify_long_vowels=simplify_long_vowels)
         
         # 翻譯為中文
-        logger.info("🌐 正在翻譯到中文...")
-        chinese_translation = translate_to_chinese(input_text)
-        if chinese_translation:
-            logger.info(f"✓ 翻譯完成: {chinese_translation[:50]}")
-        else:
-            logger.warning("⚠️  翻譯失敗或未啟用")
+        try:
+            chinese_translation = translate_to_chinese(input_text)
+            if chinese_translation:
+                logger.info(f"✓ 翻譯完成: {chinese_translation[:50]}")
+            else:
+                logger.warning("⚠️  翻譯結果為空")
+        except Exception as translate_error:
+            logger.error(f"❌ 翻譯過程出錯: {translate_error}", exc_info=True)
+            chinese_translation = None
         
         # 轉換為字典列表（便於 JSON 序列化）
         tokens_dict = [

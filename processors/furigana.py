@@ -5,7 +5,7 @@ PyKakasi 集成模塊
 
 import re
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from dataclasses import dataclass
 
 try:
@@ -17,7 +17,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # 全局 PyKakasi 實例（避免每次請求都重新初始化）
-_kakasi_instance: Optional[pykakasi.kakasi] = None
+_kakasi_instance: Optional[Any] = None
 
 
 def initialize_kakasi():
