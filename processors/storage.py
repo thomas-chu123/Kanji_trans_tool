@@ -26,7 +26,33 @@ def get_db_connection():
     return conn
 
 
-def save_translation(input_text: str, output_html: str, processed_data: Optional[List[Dict]] = None) -> Optional[int]:
+def ensure_translation_column():
+    """
+    確保 chinese_translation 列存在（用於遷移舊數據庫）
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 檢查列是否存在
+        cursor.execute("PRAGMA table_info(translations)")
+        columns = [col[1] for col in cursor.fetchall()]
+        
+        if "chinese_translation" not in columns:
+            logger.info("📝 添加 chinese_translation 列到 translations 表...")
+            cursor.execute("""
+            ALTER TABLE translations 
+            ADD COLUMN chinese_translation TEXT
+            """)
+            conn.commit()
+            logger.info("✓ 列已添加")
+        
+        conn.close()
+    except Exception as e:
+        logger.warning(f"⚠️  遷移檢查失敗 (可能已存在): {e}")
+
+
+def save_translation(input_text: str, output_html: str, processed_data: Optional[List[Dict]] = None, chinese_translation: Optional[str] = None) -> Optional[int]:
     """
     保存轉換記錄到數據庫
     
@@ -34,12 +60,16 @@ def save_translation(input_text: str, output_html: str, processed_data: Optional
         input_text: 輸入的日文文本
         output_html: 生成的 HTML 結果
         processed_data: 處理後的結構化數據（JSON 格式）
+        chinese_translation: 中文翻譯文本（可選）
     
     Returns:
         記錄的 ID（用於查詢），失敗返回 None
     """
     
     try:
+        # 確保 chinese_translation 列存在
+        ensure_translation_column()
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
@@ -47,12 +77,13 @@ def save_translation(input_text: str, output_html: str, processed_data: Optional
         processed_data_json = json.dumps(processed_data, ensure_ascii=False) if processed_data else None
         
         cursor.execute("""
-        INSERT INTO translations (input_text, output_html, processed_data, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO translations (input_text, output_html, processed_data, chinese_translation, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
         """, (
             input_text,
             output_html,
             processed_data_json,
+            chinese_translation,
             datetime.now(),
             datetime.now()
         ))

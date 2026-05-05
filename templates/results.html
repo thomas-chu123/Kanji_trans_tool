@@ -33,6 +33,16 @@
                     </div>
                 </div>
 
+                <!-- 中文翻譯 -->
+                {% if chinese_translation %}
+                <div class="mb-6">
+                    <h3 class="text-sm font-bold text-gray-600 mb-2">🌐 中文翻譯（繁體）：</h3>
+                    <div class="bg-orange-50 p-6 rounded-lg border-2 border-orange-200 font-sans text-base leading-relaxed overflow-auto max-h-96">
+                        <p class="text-gray-800 whitespace-pre-wrap">{{ chinese_translation }}</p>
+                    </div>
+                </div>
+                {% endif %}
+
                 <!-- 提示信息 -->
                 <div class="bg-blue-100 border-l-4 border-blue-600 p-4 rounded text-sm text-blue-800">
                     <p><strong>💡 提示：</strong>上方小字是假名讀音，下方是便於打字的羅馬音</p>

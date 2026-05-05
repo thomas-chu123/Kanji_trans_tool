@@ -19,6 +19,7 @@ from starlette.middleware.cors import CORSMiddleware
 # 業務邏輯模塊
 from processors.furigana import initialize_kakasi, process_text, generate_ruby_html
 from processors import storage
+from processors.translator import translate_to_chinese, initialize_translator
 from db.init_db import init_database
 
 # 配置日誌
@@ -67,6 +68,13 @@ async def startup_event():
     # 初始化 PyKakasi
     if not initialize_kakasi():
         logger.warning("⚠️  PyKakasi 初始化失敗，應用可能無法正常工作")
+    
+    # 初始化翻譯器
+    logger.info("🌐 初始化翻譯器...")
+    if initialize_translator():
+        logger.info("✓ 翻譯器已初始化")
+    else:
+        logger.warning("⚠️  翻譯器初始化失敗，翻譯功能將不可用")
     
     logger.info("✅ 應用已準備就緒，訪問：http://localhost:8000")
     logger.info("=" * 60)
@@ -168,6 +176,7 @@ async def results(request: Request, translation_id: int):
             "translation_id": record["id"],
             "input_text": record["input_text"],
             "result_html": record["output_html"],
+            "chinese_translation": record.get("chinese_translation", ""),
             "created_at": record["created_at"],
             "is_favorite": bool(record.get("is_favorite", 0)),
             "notes": record.get("notes", ""),
@@ -236,6 +245,14 @@ async def convert_text(
         processed_data = process_text(input_text, simplify_long_vowels=simplify_long_vowels)
         output_html = generate_ruby_html(processed_data, simplify_long_vowels=simplify_long_vowels)
         
+        # 翻譯為中文
+        logger.info("🌐 正在翻譯到中文...")
+        chinese_translation = translate_to_chinese(input_text)
+        if chinese_translation:
+            logger.info(f"✓ 翻譯完成: {chinese_translation[:50]}")
+        else:
+            logger.warning("⚠️  翻譯失敗或未啟用")
+        
         # 轉換為字典列表（便於 JSON 序列化）
         tokens_dict = [
             {
@@ -251,7 +268,8 @@ async def convert_text(
         translation_id = storage.save_translation(
             input_text=input_text,
             output_html=output_html,
-            processed_data=tokens_dict
+            processed_data=tokens_dict,
+            chinese_translation=chinese_translation
         )
         
         if translation_id is None:
