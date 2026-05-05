@@ -16,12 +16,17 @@
             align-items: center;
             text-align: center;
             margin: 0 0.05em;
+            vertical-align: middle;
         }
-        .ruby-top { font-size: 0.65em; color: #0066cc; }
-        .ruby-base { font-size: 1em; }
-        .ruby-bottom { font-size: 0.75em; color: #666; }
-        .ruby-container { line-height: 1.8; }
-        .number, .symbol { display: inline-block; }
+        .ruby-top { font-size: 0.65em; color: #0066cc; line-height: 1; }
+        .ruby-base { font-size: 1em; line-height: 1; }
+        .ruby-bottom { font-size: 0.75em; color: #666; line-height: 1; }
+        .ruby-container { line-height: 2.2; }
+        .number, .symbol { 
+            display: inline-block; 
+            vertical-align: middle;
+            line-height: 1;
+        }
     </style>
     
     {% block extra_head %}{% endblock %}
