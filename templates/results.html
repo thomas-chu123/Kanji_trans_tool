@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}轉換結果 - 日文文章轉換工具{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- 主結果區域 -->
+    <div class="lg:col-span-3">
+        <div class="app-container p-8">
+            <!-- 標題 -->
+            <div class="mb-8">
+                <h2 class="text-3xl font-bold text-gray-800 mb-2">✨ 轉換結果</h2>
+                <p class="text-gray-600">
+                    轉換完成於：<span class="font-medium">{{ created_at }}</span>
+                </p>
+            </div>
+
+            <!-- Ruby 文本顯示區域 -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-8 rounded-lg border-2 border-indigo-200 mb-8">
+                <!-- 原始文本 -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-bold text-gray-600 mb-2">📖 原始文本：</h3>
+                    <div class="bg-white p-4 rounded text-gray-700 text-sm line-clamp-3">
+                        {{ input_text }}
+                    </div>
+                </div>
+
+                <!-- Ruby 容器 -->
+                <div class="mb-6">
+                    <h3 class="text-sm font-bold text-gray-600 mb-2">🎯 轉換結果（假名 + 羅馬音）：</h3>
+                    <div class="bg-white p-6 rounded-lg border-2 border-gray-200 font-serif text-lg leading-relaxed overflow-auto max-h-96">
+                        {{ result_html | safe }}
+                    </div>
+                </div>
+
+                <!-- 提示信息 -->
+                <div class="bg-blue-100 border-l-4 border-blue-600 p-4 rounded text-sm text-blue-800">
+                    <p><strong>💡 提示：</strong>上方小字是假名讀音，下方是便於打字的羅馬音</p>
+                </div>
+            </div>
+
+            <!-- 操作按鈕組 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <button 
+                    onclick="copyToClipboard()" 
+                    class="flex flex-col items-center justify-center gap-2 py-4 px-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition transform hover:scale-105 active:scale-95"
+                    title="複製結果文本"
+                >
+                    <span class="text-xl">📋</span>
+                    <span class="text-xs">複製</span>
+                </button>
+                
+                <button 
+                    onclick="downloadHTML()" 
+                    class="flex flex-col items-center justify-center gap-2 py-4 px-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition transform hover:scale-105 active:scale-95"
+                    title="下載為 HTML 文件"
+                >
+                    <span class="text-xl">💾</span>
+                    <span class="text-xs">HTML</span>
+                </button>
+                
+                {% if not is_favorite %}
+                <button 
+                    onclick="markFavorite()" 
+                    class="flex flex-col items-center justify-center gap-2 py-4 px-3 bg-yellow-600 hover:bg-yellow-700 text-white font-bold rounded-lg transition transform hover:scale-105 active:scale-95"
+                    title="添加到收藏"
+                >
+                    <span class="text-xl">⭐</span>
+                    <span class="text-xs">收藏</span>
+                </button>
+                {% else %}
+                <button 
+                    onclick="unmarkFavorite()" 
+                    class="flex flex-col items-center justify-center gap-2 py-4 px-3 bg-gray-600 hover:bg-gray-700 text-white font-bold rounded-lg transition transform hover:scale-105 active:scale-95"
+                    title="取消收藏"
+                >
+                    <span class="text-xl">✓</span>
+                    <span class="text-xs">已收藏</span>
+                </button>
+                {% endif %}
+
+                <button 
+                    onclick="goBack()" 
+                    class="flex flex-col items-center justify-center gap-2 py-4 px-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg transition transform hover:scale-105 active:scale-95"
+                    title="返回編輯"
+                >
+                    <span class="text-xl">↩️</span>
+                    <span class="text-xs">返回</span>
+                </button>
+            </div>
+
+            <!-- 收藏筆記（如果已收藏） -->
+            {% if is_favorite and notes %}
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                <h3 class="font-bold text-yellow-900 mb-2">📝 我的筆記：</h3>
+                <p class="text-yellow-800">{{ notes }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 側邊欄：相關信息 -->
+    <div class="lg:col-span-1 space-y-6">
+        <!-- 統計信息 -->
+        <div class="app-container p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">📊 統計</h3>
+            <div class="space-y-3 text-sm">
+                <div class="flex justify-between">
+                    <span class="text-gray-600">原始文字數：</span>
+                    <span class="font-bold text-indigo-600">{{ input_text_length }} 字</span>
+                </div>
+                <div class="flex justify-between border-t pt-3">
+                    <span class="text-gray-600">轉換詞彙數：</span>
+                    <span class="font-bold text-indigo-600">{{ token_count }} 詞</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-600">收藏狀態：</span>
+                    <span class="font-bold {% if is_favorite %}text-yellow-600{% else %}text-gray-400{% endif %}">
+                        {% if is_favorite %}⭐ 已收藏{% else %}☆ 未收藏{% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作指南 -->
+        <div class="app-container p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">💡 操作提示</h3>
+            <div class="space-y-2 text-sm text-gray-600">
+                <p>✓ <strong>複製</strong> - 複製結果到剪貼板</p>
+                <p>✓ <strong>HTML</strong> - 下載為 HTML 文件</p>
+                <p>✓ <strong>收藏</strong> - 保存到我的收藏</p>
+                <p>✓ <strong>返回</strong> - 重新編輯文本</p>
+            </div>
+        </div>
+
+        <!-- 分享 -->
+        <div class="app-container p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">🔗 分享</h3>
+            <p class="text-sm text-gray-600 mb-4">分享此轉換結果：</p>
+            <div class="flex gap-2">
+                <button 
+                    onclick="copyShareLink()" 
+                    class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-3 rounded text-sm transition"
+                >
+                    複製鏈接
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript 功能 -->
+<script>
+    const translationId = {{ translation_id }};
+    const isFavorite = {{ is_favorite | lower }};
+    const resultHtml = `{{ result_html | safe }}`;
+
+    // 複製結果文本
+    function copyToClipboard() {
+        const resultDiv = document.querySelector('.ruby-container');
+        if (!resultDiv) {
+            alert('❌ 無法複製，請重試');
+            return;
+        }
+        
+        const text = resultDiv.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('✅ 已複製到剪貼板！');
+        }).catch(() => {
+            alert('❌ 複製失敗，請手動複製');
+        });
+    }
+
+    // 下載 HTML
+    function downloadHTML() {
+        const css = `
+            <style>
+                body {
+                    font-family: 'Segoe UI', 'Noto Sans CJK JP', sans-serif;
+                    margin: 40px;
+                    line-height: 1.8;
+                    color: #333;
+                }
+                
+                h1 { color: #0066cc; margin-bottom: 20px; }
+                h2 { color: #333; margin-top: 30px; margin-bottom: 15px; border-bottom: 2px solid #0066cc; padding-bottom: 10px; }
+                
+                .original-text {
+                    background: #f5f5f5;
+                    padding: 15px;
+                    border-radius: 5px;
+                    margin-bottom: 20px;
+                    border-left: 4px solid #0066cc;
+                }
+                
+                .ruby-container {
+                    background: #f9f9ff;
+                    padding: 20px;
+                    border-radius: 5px;
+                    margin-bottom: 20px;
+                    line-height: 2.5;
+                }
+                
+                ruby rt {
+                    font-size: 0.65em;
+                    color: #0066cc;
+                    font-weight: 500;
+                }
+                
+                .romanji-below {
+                    display: inline-block;
+                    font-size: 0.75em;
+                    color: #666;
+                    margin-right: 0.15em;
+                }
+                
+                .timestamp {
+                    color: #999;
+                    font-size: 0.9em;
+                    margin-top: 30px;
+                    border-top: 1px solid #ddd;
+                    padding-top: 10px;
+                }
+            </style>
+        `;
+        
+        const html = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日文轉換結果</title>
+    ${css}
+</head>
+<body>
+    <h1>🇯🇵 日文文章轉換結果</h1>
+    
+    <h2>原始文本</h2>
+    <div class="original-text">
+        {{ input_text }}
+    </div>
+    
+    <h2>轉換結果（假名讀音 + 羅馬音）</h2>
+    <div class="ruby-container">
+        ${resultHtml}
+    </div>
+    
+    <div class="timestamp">
+        <p>轉換時間：{{ created_at }}</p>
+        <p>由日文文章轉換工具生成</p>
+    </div>
+</body>
+</html>`;
+        
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `japanese-conversion-${translationId}.html`;
+        link.click();
+        
+        alert('✅ HTML 文件已下載！');
+    }
+
+    // 標記收藏
+    function markFavorite() {
+        const notes = prompt('💭 添加筆記（可選）：');
+        
+        fetch('/api/favorite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                translation_id: translationId,
+                notes: notes || ''
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ 已添加到收藏！');
+                location.reload();
+            } else {
+                alert('❌ 收藏失敗：' + data.error);
+            }
+        })
+        .catch(err => {
+            alert('❌ 錯誤：' + err);
+        });
+    }
+
+    // 取消收藏
+    function unmarkFavorite() {
+        if (confirm('確定要取消收藏嗎？')) {
+            fetch(`/api/favorite/${translationId}`, {
+                method: 'DELETE'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ 已取消收藏');
+                    location.reload();
+                } else {
+                    alert('❌ 操作失敗');
+                }
+            })
+            .catch(err => alert('❌ 錯誤：' + err));
+        }
+    }
+
+    // 返回編輯
+    function goBack() {
+        window.location.href = '/';
+    }
+
+    // 複製分享鏈接
+    function copyShareLink() {
+        const url = window.location.href;
+        navigator.clipboard.writeText(url).then(() => {
+            alert('✅ 分享鏈接已複製！');
+        }).catch(() => {
+            alert('❌ 複製失敗');
+        });
+    }
+</script>
+{% endblock %}

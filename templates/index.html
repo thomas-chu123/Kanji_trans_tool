@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}日文文章轉換 - 輸入頁面{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- 主轉換區域 -->
+    <div class="lg:col-span-2">
+        <div class="app-container p-8">
+            <!-- 標題 -->
+            <div class="mb-8">
+                <h2 class="text-4xl font-bold text-gray-800 mb-3">日文文章轉換</h2>
+                <p class="text-gray-600 text-lg">
+                    輸入日文文章，即時顯示假名讀音與羅馬音拼音 📝
+                </p>
+            </div>
+
+            <!-- 轉換表單 -->
+            <form method="post" action="/convert" id="convertForm" class="space-y-6">
+                <!-- 文本輸入框 -->
+                <div>
+                    <label for="inputText" class="block text-sm font-bold text-gray-700 mb-3">
+                        💬 日文文本
+                    </label>
+                    <textarea 
+                        id="inputText" 
+                        name="text" 
+                        rows="10"
+                        class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none text-base"
+                        placeholder="粘貼或輸入日文文本...&#10;例如：日本の作家、九段理江氏（３３）は同国で最も栄誉ある文学賞の一つを受賞した後..."
+                    ></textarea>
+                    <div class="mt-3 flex justify-between text-sm">
+                        <span class="text-gray-500">字數：<span id="charCount" class="font-bold text-indigo-600">0</span></span>
+                        <button type="button" onclick="clearInput()" class="text-indigo-600 hover:text-indigo-700 underline">
+                            清空
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 文件上傳 -->
+                <div class="border-t-2 pt-6">
+                    <label for="fileUpload" class="block text-sm font-bold text-gray-700 mb-3">
+                        📁 或上傳文件 (.txt, .pdf)
+                    </label>
+                    <input 
+                        type="file" 
+                        id="fileUpload" 
+                        name="file" 
+                        accept=".txt,.pdf"
+                        class="block w-full text-sm text-gray-500
+                            file:mr-4 file:py-3 file:px-4
+                            file:rounded-lg file:border-0
+                            file:text-sm file:font-bold
+                            file:bg-gradient-to-r file:from-indigo-500 file:to-purple-500
+                            file:text-white
+                            hover:file:from-indigo-600 hover:file:to-purple-600
+                            transition"
+                    />
+                    <p class="mt-2 text-xs text-gray-500">支持上傳 .txt 和 .pdf 文件，最大 5MB</p>
+                </div>
+
+                <!-- 轉換選項 -->
+                <div class="border-t-2 pt-6 space-y-4 bg-gray-50 p-4 rounded-lg">
+                    <div class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            id="longVowelSimplify" 
+                            name="simplify_long_vowels"
+                            class="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                            checked
+                        />
+                        <label for="longVowelSimplify" class="ml-3 text-sm text-gray-700">
+                            <span class="font-medium">簡化羅馬音長音</span>
+                            <span class="text-gray-500 ml-2">(ou→ou, uu→uu，便於打字)</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 按鈕組 -->
+                <div class="flex gap-4 pt-6">
+                    <button 
+                        type="submit" 
+                        onclick="return validateForm()"
+                        class="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold py-4 px-6 rounded-lg transition text-lg shadow-lg"
+                    >
+                        🔄 開始轉換
+                    </button>
+                    <button 
+                        type="reset" 
+                        class="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg transition"
+                    >
+                        ↺ 重置
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 側邊欄：最近轉換記錄 -->
+    <div class="lg:col-span-1">
+        <div class="app-container p-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                ⏱️ 最近轉換
+            </h3>
+            
+            {% if recent_translations %}
+                <ul class="space-y-3 max-h-96 overflow-y-auto">
+                    {% for item in recent_translations %}
+                    <li class="text-sm pb-3 border-b hover:bg-gray-50 p-2 rounded cursor-pointer transition" 
+                        onclick="loadRecent({{ item.id }})">
+                        <div class="text-xs text-gray-500 mb-1">{{ item.created_at }}</div>
+                        <div class="text-gray-700 line-clamp-2">{{ item.input_text[:60] }}...</div>
+                        {% if item.is_favorite %}
+                        <div class="text-xs text-yellow-600 mt-1">⭐ 已收藏</div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <a href="/history" class="text-indigo-600 hover:text-indigo-700 text-sm mt-4 inline-block font-medium">
+                    查看全部歷史 →
+                </a>
+            {% else %}
+                <div class="text-center py-8">
+                    <p class="text-gray-500 text-sm">還沒有轉換記錄</p>
+                    <p class="text-gray-400 text-xs mt-2">開始轉換時會保存歷史</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- 收藏 -->
+        <div class="app-container p-6 mt-6">
+            <h3 class="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                ⭐ 我的收藏
+            </h3>
+            
+            {% if favorites %}
+                <ul class="space-y-3 max-h-48 overflow-y-auto">
+                    {% for item in favorites[:5] %}
+                    <li class="text-sm pb-3 border-b hover:bg-gray-50 p-2 rounded cursor-pointer transition">
+                        <div class="text-gray-700 line-clamp-1">{{ item.input_text[:50] }}</div>
+                        {% if item.tags %}
+                        <div class="text-xs text-purple-600 mt-1">{{ item.tags }}</div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                <a href="/favorites" class="text-indigo-600 hover:text-indigo-700 text-sm mt-4 inline-block font-medium">
+                    查看全部收藏 →
+                </a>
+            {% else %}
+                <div class="text-center py-6">
+                    <p class="text-gray-500 text-sm">還沒有收藏</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript 功能 -->
+<script>
+    // 實時字數統計
+    document.getElementById('inputText').addEventListener('input', function() {
+        document.getElementById('charCount').textContent = this.value.length;
+    });
+
+    // 文本與文件互斥
+    document.getElementById('inputText').addEventListener('input', function() {
+        if (this.value.trim()) {
+            document.getElementById('fileUpload').value = '';
+        }
+    });
+
+    document.getElementById('fileUpload').addEventListener('change', function() {
+        if (this.value) {
+            document.getElementById('inputText').value = '';
+        }
+    });
+
+    // 表單驗證
+    function validateForm() {
+        const text = document.getElementById('inputText').value.trim();
+        const file = document.getElementById('fileUpload').value;
+        
+        if (!text && !file) {
+            alert('❌ 請輸入文本或選擇文件');
+            return false;
+        }
+        
+        if (text.length > 100000) {
+            alert('❌ 文本過長，最多 100,000 字');
+            return false;
+        }
+        
+        return true;
+    }
+
+    // 清空輸入
+    function clearInput() {
+        document.getElementById('inputText').value = '';
+        document.getElementById('charCount').textContent = '0';
+    }
+
+    // 載入最近記錄
+    function loadRecent(id) {
+        window.location.href = '/results/' + id;
+    }
+</script>
+{% endblock %}

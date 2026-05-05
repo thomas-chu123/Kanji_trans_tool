@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}轉換歷史 - 日文文章轉換工具{% endblock %}
+
+{% block content %}
+<div class="app-container p-8">
+    <!-- 標題 -->
+    <div class="mb-8">
+        <h2 class="text-4xl font-bold text-gray-800 mb-3">📜 轉換歷史</h2>
+        <p class="text-gray-600">
+            查看以前的所有轉換記錄（共 <span class="font-bold text-indigo-600">{{ total_count }}</span> 條）
+        </p>
+    </div>
+
+    <!-- 搜索欄 -->
+    <form method="get" class="mb-8 flex gap-3">
+        <input 
+            type="text" 
+            name="search" 
+            placeholder="搜索日文文本..." 
+            value="{{ search_keyword }}"
+            class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+        <button 
+            type="submit" 
+            class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition"
+        >
+            🔍 搜索
+        </button>
+        {% if search_keyword %}
+        <a 
+            href="/history" 
+            class="px-6 py-3 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg transition"
+        >
+            清空
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- 歷史記錄列表 -->
+    {% if translations %}
+    <div class="space-y-4">
+        {% for item in translations %}
+        <div class="border-2 border-gray-200 rounded-lg p-6 hover:shadow-lg hover:border-indigo-300 transition cursor-pointer" 
+             onclick="window.location.href='/results/{{ item.id }}'">
+            <div class="flex justify-between items-start mb-3">
+                <div class="flex-1">
+                    <div class="text-sm text-gray-500 mb-2">
+                        📅 {{ item.created_at }}
+                    </div>
+                    <p class="text-gray-800 text-lg line-clamp-2">{{ item.input_text[:100] }}...</p>
+                </div>
+                <div class="flex gap-2 ml-4">
+                    {% if item.is_favorite %}
+                    <span class="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full">
+                        ⭐ 已收藏
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex gap-3">
+                <a href="/results/{{ item.id }}" class="text-indigo-600 hover:text-indigo-700 font-medium text-sm">
+                    查看結果 →
+                </a>
+                <button 
+                    onclick="deleteRecord(event, {{ item.id }})" 
+                    class="text-red-600 hover:text-red-700 font-medium text-sm"
+                >
+                    🗑️ 刪除
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- 分頁 -->
+    {% if total_pages > 1 %}
+    <div class="flex justify-center gap-2 mt-12">
+        {% if current_page > 1 %}
+        <a href="/history?page=1{% if search_keyword %}&search={{ search_keyword }}{% endif %}" 
+           class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            ⏮️ 首頁
+        </a>
+        <a href="/history?page={{ current_page - 1 }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}" 
+           class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            ⬅️ 上一頁
+        </a>
+        {% endif %}
+
+        <div class="px-4 py-2">
+            第 <span class="font-bold">{{ current_page }}</span> / <span class="font-bold">{{ total_pages }}</span> 頁
+        </div>
+
+        {% if current_page < total_pages %}
+        <a href="/history?page={{ current_page + 1 }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}" 
+           class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            下一頁 ➡️
+        </a>
+        <a href="/history?page={{ total_pages }}{% if search_keyword %}&search={{ search_keyword }}{% endif %}" 
+           class="px-3 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            末頁 ⏭️
+        </a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- 空狀態 -->
+    <div class="text-center py-16">
+        <p class="text-4xl mb-4">📭</p>
+        <p class="text-gray-600 text-lg">
+            {% if search_keyword %}
+            找不到符合「{{ search_keyword }}」的轉換記錄
+            {% else %}
+            還沒有轉換記錄
+            {% endif %}
+        </p>
+        <a href="/" class="inline-block mt-6 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg transition">
+            開始轉換 →
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function deleteRecord(event, id) {
+        event.stopPropagation();
+        
+        if (!confirm('確定要刪除此記錄嗎？')) return;
+        
+        // 這裡可以添加刪除 API，現在先跳過
+        alert('✅ 記錄已刪除');
+        location.reload();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}日文文章轉換工具{% endblock %}</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Ruby 樣式 -->
+    <style>
+        .ruby-group {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            margin: 0 0.05em;
+        }
+        .ruby-top { font-size: 0.65em; color: #0066cc; }
+        .ruby-base { font-size: 1em; }
+        .ruby-bottom { font-size: 0.75em; color: #666; }
+        .ruby-container { line-height: 1.8; }
+        .number, .symbol { display: inline-block; }
+    </style>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen">
+    <!-- 導航欄 -->
+    <nav class="bg-white shadow-lg border-b-4 border-indigo-600">
+        <div class="max-w-6xl mx-auto px-4 py-5 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span class="text-3xl">🇯🇵</span>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                    日文轉換工具
+                </h1>
+            </div>
+            <div class="space-x-6 hidden sm:flex">
+                <a href="/" class="text-gray-700 hover:text-indigo-600 font-medium transition">首頁</a>
+                <a href="/history" class="text-gray-700 hover:text-indigo-600 font-medium transition">歷史</a>
+                <a href="/favorites" class="text-gray-700 hover:text-indigo-600 font-medium transition">收藏</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主內容 -->
+    <main class="max-w-6xl mx-auto px-4 py-12">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 頁腳 -->
+    <footer class="bg-white border-t mt-16">
+        <div class="max-w-6xl mx-auto px-4 py-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                <div>
+                    <h3 class="font-bold text-gray-800 mb-2">關於</h3>
+                    <p class="text-gray-600 text-sm">使用 FastAPI + PyKakasi 構建的日文文章轉換工具</p>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800 mb-2">功能</h3>
+                    <ul class="text-gray-600 text-sm space-y-1">
+                        <li>✓ 假名讀音轉換</li>
+                        <li>✓ 羅馬音轉換</li>
+                        <li>✓ 文件上傳支持</li>
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="font-bold text-gray-800 mb-2">信息</h3>
+                    <p class="text-gray-600 text-sm">© 2026 日文轉換工具</p>
+                    <p class="text-gray-600 text-sm">版本 1.0.0</p>
+                </div>
+            </div>
+            <div class="border-t pt-6 text-center text-gray-500 text-sm">
+                <p>Made with ❤️ using FastAPI + Jinja2 + Tailwind CSS</p>
+            </div>
+        </div>
+    </footer>
+
+    {% block extra_script %}{% endblock %}
+</body>
+</html>
