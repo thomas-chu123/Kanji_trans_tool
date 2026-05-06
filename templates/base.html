@@ -20,7 +20,18 @@
             text-align: center;
             margin: 0 0.05em;
             vertical-align: middle;
+            transition: transform 0.15s ease, font-weight 0.15s ease, color 0.15s ease;
         }
+        
+        /* 正在播放的詞高亮效果 */
+        .ruby-group.speaking {
+            color: #dc2626;  /* 紅色 */
+            background-color: rgba(220, 38, 38, 0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            box-shadow: 0 0 8px rgba(220, 38, 38, 0.3);
+        }
+        
         .ruby-top { font-size: 0.65em; color: #0066cc; line-height: 1; }
         .ruby-base { font-size: 1em; line-height: 1; }
         .ruby-bottom { font-size: 0.75em; color: #666; line-height: 1; }

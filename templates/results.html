@@ -451,6 +451,7 @@
     let currentUtterance = null;
     let currentSpeedSlider = 'speedSlider';
     let isStopping = false;  // 標記是否由用戶主動停止
+    let isTransitioning = false;  // 標記是否在正常的單詞轉換過程中
 
     // 播放原始文本
     function speakOriginalText() {
@@ -465,17 +466,108 @@
 
     // 播放轉換結果
     function speakResultText() {
-        // 從 ruby-base 元素提取文本
-        const baseElements = document.querySelectorAll('.ruby-base');
-        const text = Array.from(baseElements).map(el => el.textContent).join('').trim();
+        // 從 ruby-group 元素提取（便于逐个高亮）
+        const rubyGroups = document.querySelectorAll('.ruby-group');
         
-        if (!text) {
+        if (rubyGroups.length === 0) {
             alert('❌ 無法取得轉換結果文本');
             return;
         }
         
         const rate = parseFloat(document.getElementById('speedSliderResult').value) || 1.0;
-        playText(text, rate);
+        
+        // 逐个播放每个ruby-group
+        playRubyGroupsSequentially(rubyGroups, rate);
+    }
+
+    // 顺序播放ruby-groups（带高亮效果）
+    function playRubyGroupsSequentially(rubyGroups, rate, index = 0) {
+        if (index >= rubyGroups.length) {
+            console.log('✅ 全部播放完成');
+            return;
+        }
+
+        const currentGroup = rubyGroups[index];
+        const baseElement = currentGroup.querySelector('.ruby-base');
+        
+        if (!baseElement) {
+            playRubyGroupsSequentially(rubyGroups, rate, index + 1);
+            return;
+        }
+
+        const text = baseElement.textContent.trim();
+        
+        if (!text) {
+            playRubyGroupsSequentially(rubyGroups, rate, index + 1);
+            return;
+        }
+
+        // 檢查瀏覽器支持
+        if (!('speechSynthesis' in window)) {
+            alert('❌ 您的瀏覽器不支持音声播放功能');
+            return;
+        }
+
+        // 停止當前播放
+        if (currentUtterance) {
+            window.speechSynthesis.cancel();
+        }
+
+        // 建立新的語音實例
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP';
+        utterance.rate = Math.max(0.1, Math.min(rate, 10));
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
+
+        // 事件監聽
+        utterance.onstart = () => {
+            // 高亮當前正在播放的詞
+            currentGroup.classList.add('speaking');
+            currentGroup.style.fontWeight = 'bold';
+            currentGroup.style.transform = 'scale(1.1)';
+            console.log('🔊 播放:', text);
+        };
+
+        utterance.onend = () => {
+            // 移除高亮
+            currentGroup.classList.remove('speaking');
+            currentGroup.style.fontWeight = '';
+            currentGroup.style.transform = '';
+            console.log('✓ 完成:', text);
+            
+            // 标记转换状态
+            isTransitioning = true;
+            
+            // 播放下一個詞
+            playRubyGroupsSequentially(rubyGroups, rate, index + 1);
+        };
+
+        utterance.onerror = (e) => {
+            // 如果是用户主动停止，不显示错误信息
+            if (isStopping) {
+                console.log('⏹️ 用户已停止播放');
+                return;
+            }
+            
+            // 如果是正常的单词转换过程，忽略"canceled"错误
+            if (isTransitioning && e.error === 'canceled') {
+                isTransitioning = false;
+                console.log('📝 转换到下一个单词...');
+                return;
+            }
+            
+            isTransitioning = false;
+            console.error('❌ 播放錯誤:', e.error);
+            let msg = '❌ 播放失敗';
+            if (e.error === 'synthesis-unavailable') {
+                msg = '❌ 系統可能沒有日文語音包\n請在系統設置中安裝日文語音';
+            }
+            alert(msg);
+        };
+
+        currentUtterance = utterance;
+        window.speechSynthesis.speak(utterance);
     }
 
     // 播放文本
@@ -532,6 +624,15 @@
         if (window.speechSynthesis && window.speechSynthesis.speaking) {
             isStopping = true;  // 标记为用户主动停止
             window.speechSynthesis.cancel();
+            
+            // 移除所有的高亮效果
+            const allGroups = document.querySelectorAll('.ruby-group.speaking');
+            allGroups.forEach(group => {
+                group.classList.remove('speaking');
+                group.style.fontWeight = '';
+                group.style.transform = '';
+            });
+            
             currentUtterance = null;
             isStopping = false;  // 重置标记
             console.log('⏹️ 已停止播放');
