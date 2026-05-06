@@ -14,10 +14,18 @@ try:
 except ImportError:
     PYKAKASI_AVAILABLE = False
 
+try:
+    import fugashi
+    FUGASHI_AVAILABLE = True
+except ImportError:
+    FUGASHI_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # 全局 PyKakasi 實例（避免每次請求都重新初始化）
 _kakasi_instance: Optional[Any] = None
+# 全局 Fugashi 實例（用於詞性分析）
+_tagger: Optional[Any] = None
 
 
 def initialize_kakasi():
@@ -48,6 +56,121 @@ def get_kakasi_instance() -> Optional[pykakasi.kakasi]:
     return _kakasi_instance
 
 
+def initialize_tagger():
+    """
+    初始化 Fugashi 詞性標註器（應用啟動時調用，緩存全局）
+    用於詞性分析和彩色標注
+    """
+    global _tagger
+    
+    if not FUGASHI_AVAILABLE:
+        logger.warning("⚠️  Fugashi 未安裝，詞性標注功能不可用")
+        return False
+    
+    try:
+        _tagger = fugashi.Tagger()
+        logger.info("✓ Fugashi 詞性標註器已初始化")
+        return True
+    except Exception as e:
+        logger.error(f"Fugashi 初始化失敗: {e}")
+        return False
+
+
+def get_tagger() -> Optional[Any]:
+    """獲取全局 Fugashi 詞性標註器"""
+    global _tagger
+    if _tagger is None and FUGASHI_AVAILABLE:
+        initialize_tagger()
+    return _tagger
+
+
+# 詞性 → CSS 類名 映射表
+# 使用 UnidDic 日文詞性標籤
+POS_TO_CSS_CLASS = {
+    # 名詞相關
+    '名詞': 'pos-noun',                  # 名詞 - 藍色
+    
+    # 動詞相關
+    '動詞': 'pos-verb',                  # 動詞 - 紅色
+    
+    # 形容詞相關
+    '形容詞': 'pos-adj',                 # 形容詞 - 橙色
+    '連体詞': 'pos-adj',                 # 連體詞（修飾名詞） - 橙色
+    
+    # 副詞相關
+    '副詞': 'pos-adv',                   # 副詞 - 綠色
+    
+    # 助詞/助動詞相關
+    '助詞': 'pos-part',                  # 助詞 - 紫色
+    '助動詞': 'pos-aux',                 # 助動詞 - 紫色
+    
+    # 連詞相關
+    '接続詞': 'pos-cconj',               # 連詞 - 粉紅色
+    
+    # 代名詞
+    '代名詞': 'pos-pron',                # 代名詞 - 靛藍色
+    
+    # 感嘆詞
+    '感動詞': 'pos-intj',                # 感嘆詞 - 粉紅色
+    
+    # 數詞
+    '数詞': 'pos-num',                   # 數詞 - 棕色
+    
+    # 記號相關
+    '補助記号': 'pos-punct',             # 補助記號 - 灰色
+    '接尾辞': 'pos-punct',               # 接尾詞 - 灰色
+    '接頭辞': 'pos-punct',               # 接頭詞 - 灰色
+    
+    # 其他
+    'X': 'pos-x',                        # 未知 - 灰色
+}
+
+
+def get_pos_tag(word: str) -> Optional[str]:
+    """
+    使用 Fugashi 獲取單詞的詞性標籤
+    
+    Args:
+        word: 日文詞彙
+    
+    Returns:
+        詞性標籤字符串（日文），失敗時返回 None
+    """
+    tagger = get_tagger()
+    if tagger is None:
+        return None
+    
+    try:
+        # Fugashi 分析單詞
+        result = tagger(word)
+        if result:
+            # 獲取第一個（主要）分析結果
+            word_obj = result[0]
+            # 獲取詞性信息 (pos1 是主要詞性)
+            pos = word_obj.feature.pos1
+            return pos if pos else None
+    except Exception as e:
+        logger.debug(f"詞性分析失敗 '{word}': {e}")
+    
+    return None
+
+
+def get_css_class_for_pos(pos: Optional[str]) -> str:
+    """
+    根據詞性返回對應的 CSS 類名
+    
+    Args:
+        pos: 詞性標籤（日文）
+    
+    Returns:
+        CSS 類名，如果沒有對應則返回空字符串
+    """
+    if pos is None or pos == '*':
+        return ""
+    
+    return POS_TO_CSS_CLASS.get(pos, "")
+
+
 @dataclass
 class ProcessedToken:
     """處理後的詞彙單位"""
@@ -55,6 +178,7 @@ class ProcessedToken:
     hiragana: str         # 假名形式
     romanji: str          # 羅馬音
     token_type: str       # 詞類: kanji, hiragana, katakana, symbol, number, space
+    pos_tag: Optional[str] = None  # 詞性標籤 (如: NOUN, VERB, ADJ 等)
 
 
 def katakana_to_hiragana(katakana: str) -> str:
@@ -142,11 +266,17 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
             
             token_type = determine_token_type(original)
             
+            # 獲取詞性標籤（僅對非空格、非符號的詞彙）
+            pos_tag = None
+            if token_type not in ["space", "symbol"]:
+                pos_tag = get_pos_tag(original)
+            
             token = ProcessedToken(
                 original=original,
                 hiragana=hiragana,
                 romanji=romanji,
-                token_type=token_type
+                token_type=token_type,
+                pos_tag=pos_tag
             )
             tokens.append(token)
         
@@ -182,6 +312,7 @@ def generate_ruby_html(tokens: List[ProcessedToken], simplify_long_vowels: bool 
     將結構化數據轉換為 HTML Ruby 標籤
     
     三層展示：上方假名 → 中間日文字 → 下方羅馬音
+    根據詞性添加相應的 CSS 類名，用於彩色標注
     
     Args:
         tokens: process_text() 的輸出
@@ -197,6 +328,11 @@ def generate_ruby_html(tokens: List[ProcessedToken], simplify_long_vowels: bool 
     html_parts: List[str] = []
     
     for token in tokens:
+        # 獲取詞性對應的 CSS 類名
+        pos_class = get_css_class_for_pos(token.pos_tag)
+        pos_attr = f' pos-type="{token.pos_tag}"' if token.pos_tag else ""
+        css_classes = f'ruby-group {pos_class}' if pos_class else 'ruby-group'
+        
         if token.token_type == "space":
             # 保留空格
             html_parts.append(" ")
@@ -213,7 +349,7 @@ def generate_ruby_html(tokens: List[ProcessedToken], simplify_long_vowels: bool 
             # 純假名：如果有 romanji 才顯示三層
             if token.romanji and token.romanji != token.original:
                 html_parts.append(
-                    f'<div class="ruby-group">'
+                    f'<div class="{css_classes}"{pos_attr}>'
                     f'<div class="ruby-top">{escape_html(token.hiragana)}</div>'
                     f'<div class="ruby-base">{escape_html(token.original)}</div>'
                     f'<div class="ruby-bottom">{escape_html(token.romanji)}</div>'
@@ -221,26 +357,26 @@ def generate_ruby_html(tokens: List[ProcessedToken], simplify_long_vowels: bool 
                 )
             else:
                 # 沒有 romanji 則直接顯示
-                html_parts.append(f'{escape_html(token.original)}')
+                html_parts.append(f'<span class="{pos_class}" {pos_attr}>{escape_html(token.original)}</span>' if pos_class else f'{escape_html(token.original)}')
         
         elif token.token_type == "katakana":
             # 片假名：有真實轉換時才顯示三層
             if token.hiragana != token.original and token.romanji:
                 html_parts.append(
-                    f'<div class="ruby-group">'
+                    f'<div class="{css_classes}"{pos_attr}>'
                     f'<div class="ruby-top">{escape_html(token.hiragana)}</div>'
                     f'<div class="ruby-base">{escape_html(token.original)}</div>'
                     f'<div class="ruby-bottom">{escape_html(token.romanji)}</div>'
                     f'</div>'
                 )
             else:
-                html_parts.append(f'{escape_html(token.original)}')
+                html_parts.append(f'<span class="{pos_class}">{escape_html(token.original)}</span>' if pos_class else f'{escape_html(token.original)}')
         
         elif token.token_type == "kanji":
             # 漢字：上方假名 → 中間漢字 → 下方羅馬音
             if token.hiragana and token.hiragana != token.original:
                 html_parts.append(
-                    f'<div class="ruby-group">'
+                    f'<div class="{css_classes}"{pos_attr}>'
                     f'<div class="ruby-top">{escape_html(token.hiragana)}</div>'
                     f'<div class="ruby-base">{escape_html(token.original)}</div>'
                     f'<div class="ruby-bottom">{escape_html(token.romanji)}</div>'
@@ -248,7 +384,7 @@ def generate_ruby_html(tokens: List[ProcessedToken], simplify_long_vowels: bool 
                 )
             else:
                 # 如果沒有轉換則直接顯示
-                html_parts.append(f'{escape_html(token.original)}')
+                html_parts.append(f'<span class="{pos_class}">{escape_html(token.original)}</span>' if pos_class else f'{escape_html(token.original)}')
     
     # 包裝在容器中
     html_content = "".join(html_parts)

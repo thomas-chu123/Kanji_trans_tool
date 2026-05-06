@@ -1,0 +1,454 @@
+/* 
+ * 詞性彩色標注樣式表 - 下底線設計
+ * 根據日文詞性為文本添加不同顏色的下底線
+ */
+
+/* ========================================
+   詞性標注容器
+   ======================================== */
+
+.ruby-container {
+    display: inline-block;
+    word-break: break-word;
+    line-height: 3.5;  /* 為上下層內容預留空間 */
+}
+
+/* 帶詞性標注的 ruby 文本組 - 使用下底線 */
+.ruby-group {
+    display: inline-block;
+    text-align: center;
+    margin: 0 2px;
+    position: relative;
+    padding: 2px 4px;
+    padding-bottom: 6px;  /* 為下底線預留空間 */
+    border-bottom: 3px solid #ccc;  /* 預設灰色下底線 */
+    transition: border-bottom-color 0.2s ease;
+}
+
+/* Ruby 文本層 */
+.ruby-top {
+    font-size: 0.5em;
+    line-height: 1;
+    height: 1em;
+    color: inherit;
+}
+
+.ruby-base {
+    font-size: 1em;
+    line-height: 1;
+    font-weight: 600;
+    color: inherit;
+}
+
+.ruby-bottom {
+    font-size: 0.5em;
+    line-height: 1;
+    height: 1em;
+    color: inherit;
+    opacity: 0.8;
+}
+
+/* ========================================
+   詞性特定顏色 - 下底線設計
+   ======================================== */
+
+/* 名詞 NOUN - 藍色下底線 */
+.pos-noun {
+    border-bottom: 3px solid #2563eb;
+}
+
+.pos-noun .ruby-base {
+    color: #1e40af;  /* 深藍色文字 */
+}
+
+.pos-noun:hover {
+    border-bottom-color: #1e3a8a;
+}
+
+
+/* 動詞 VERB - 紅色下底線 */
+.pos-verb {
+    border-bottom: 3px solid #dc2626;
+}
+
+.pos-verb .ruby-base {
+    color: #991b1b;  /* 深紅色文字 */
+}
+
+.pos-verb:hover {
+    border-bottom-color: #7f1d1d;
+}
+
+
+/* 形容詞 ADJ - 橙色下底線 */
+.pos-adj {
+    border-bottom: 3px solid #ea580c;
+}
+
+.pos-adj .ruby-base {
+    color: #7c2d12;  /* 深橙色文字 */
+}
+
+.pos-adj:hover {
+    border-bottom-color: #5a1f08;
+}
+
+
+/* 副詞 ADV - 綠色下底線 */
+.pos-adv {
+    border-bottom: 3px solid #15803d;
+}
+
+.pos-adv .ruby-base {
+    color: #14532d;  /* 深綠色文字 */
+}
+
+.pos-adv:hover {
+    border-bottom-color: #0d3a1f;
+}
+
+
+/* 助動詞 AUX - 紫色下底線 */
+.pos-aux {
+    border-bottom: 3px solid #7c3aed;
+}
+
+.pos-aux .ruby-base {
+    color: #581c87;  /* 深紫色文字 */
+}
+
+.pos-aux:hover {
+    border-bottom-color: #3f0f5c;
+}
+
+
+/* 助詞 PART - 紫色下底線（稍淡） */
+.pos-part {
+    border-bottom: 3px solid #a855f7;
+}
+
+.pos-part .ruby-base {
+    color: #6b21a8;  /* 深紫色文字 */
+}
+
+.pos-part:hover {
+    border-bottom-color: #7c3aed;
+}
+
+
+/* 連詞 CCONJ - 粉紅色下底線 */
+.pos-cconj {
+    border-bottom: 3px solid #e11d48;
+}
+
+.pos-cconj .ruby-base {
+    color: #831843;  /* 深粉色文字 */
+}
+
+.pos-cconj:hover {
+    border-bottom-color: #be123c;
+}
+
+
+/* 從屬連詞 SCONJ - 粉紅色下底線 */
+.pos-sconj {
+    border-bottom: 3px solid #ec4899;
+}
+
+.pos-sconj .ruby-base {
+    color: #800b4a;  /* 深粉色文字 */
+}
+
+.pos-sconj:hover {
+    border-bottom-color: #d1205a;
+}
+
+
+/* 數詞 NUM - 棕色下底線 */
+.pos-num {
+    border-bottom: 3px solid #b45309;
+}
+
+.pos-num .ruby-base {
+    color: #78350f;  /* 深棕色文字 */
+}
+
+.pos-num:hover {
+    border-bottom-color: #92400e;
+}
+
+
+/* 代名詞 PRON - 靛藍色下底線 */
+.pos-pron {
+    border-bottom: 3px solid #4f46e5;
+}
+
+.pos-pron .ruby-base {
+    color: #3730a3;  /* 深靛藍文字 */
+}
+
+.pos-pron:hover {
+    border-bottom-color: #3f2c6f;
+}
+
+
+/* 感嘆詞 INTJ - 粉紅色下底線 */
+.pos-intj {
+    border-bottom: 3px solid #ec4899;
+}
+
+.pos-intj .ruby-base {
+    color: #9d174d;  /* 深粉紅文字 */
+}
+
+.pos-intj:hover {
+    border-bottom-color: #d1205a;
+}
+
+
+/* 標點 PUNCT / 符號 SYMBOL / 其他 X - 灰色下底線 */
+.pos-punct,
+.pos-symbol,
+.pos-x {
+    border-bottom: 3px solid #9ca3af;
+}
+
+.pos-punct .ruby-base,
+.pos-symbol .ruby-base,
+.pos-x .ruby-base {
+    color: #374151;  /* 深灰色文字 */
+}
+
+.pos-punct:hover,
+.pos-symbol:hover,
+.pos-x:hover {
+    border-bottom-color: #6b7280;
+}
+
+
+/* ========================================
+   數字和符號樣式
+   ======================================== */
+
+span.number {
+    font-weight: 600;
+    color: #78350f;  /* 棕色 */
+    border-bottom: 3px solid #b45309;
+    padding-bottom: 2px;
+}
+
+span.symbol {
+    color: #6b7280;   /* 灰色 */
+    margin: 0 1px;
+    border-bottom: 2px solid #d1d5db;
+    padding-bottom: 2px;
+}
+
+
+/* ========================================
+   詞性圖例 - 放在結果下方
+   ======================================== */
+
+.pos-legend {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 2px solid #e5e7eb;
+}
+
+.pos-legend-title {
+    font-size: 1em;
+    font-weight: 700;
+    color: #374151;
+    margin-bottom: 15px;
+}
+
+.pos-legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 15px;
+}
+
+.pos-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background-color: #f9fafb;
+    transition: background-color 0.2s ease;
+}
+
+.pos-legend-item:hover {
+    background-color: #f3f4f6;
+}
+
+.pos-legend-color {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    border: 2px solid #e5e7eb;
+}
+
+.pos-legend-label {
+    font-size: 0.95em;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+
+/* 各詞性圖例顏色 */
+.legend-noun { border-bottom: 3px solid #2563eb; }
+.legend-verb { border-bottom: 3px solid #dc2626; }
+.legend-adj { border-bottom: 3px solid #ea580c; }
+.legend-adv { border-bottom: 3px solid #15803d; }
+.legend-aux { border-bottom: 3px solid #7c3aed; }
+.legend-part { border-bottom: 3px solid #a855f7; }
+.legend-cconj { border-bottom: 3px solid #e11d48; }
+.legend-pron { border-bottom: 3px solid #4f46e5; }
+.legend-intj { border-bottom: 3px solid #ec4899; }
+.legend-num { border-bottom: 3px solid #b45309; }
+.legend-punct { border-bottom: 3px solid #9ca3af; }
+
+
+/* ========================================
+   響應式設計
+   ======================================== */
+
+@media (max-width: 640px) {
+    .ruby-container {
+        line-height: 3;
+    }
+    
+    .ruby-top,
+    .ruby-bottom {
+        font-size: 0.45em;
+    }
+    
+    .pos-legend-grid {
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 10px;
+    }
+}
+
+
+/* ========================================
+   暗黑模式支持
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+    .ruby-group {
+        border-bottom-color: #6b7280;
+    }
+    
+    .pos-noun {
+        border-bottom-color: #93c5fd;
+    }
+    
+    .pos-noun .ruby-base {
+        color: #93c5fd;
+    }
+    
+    .pos-verb {
+        border-bottom-color: #fca5a5;
+    }
+    
+    .pos-verb .ruby-base {
+        color: #fca5a5;
+    }
+    
+    .pos-adj {
+        border-bottom-color: #fed7aa;
+    }
+    
+    .pos-adj .ruby-base {
+        color: #fed7aa;
+    }
+    
+    .pos-adv {
+        border-bottom-color: #86efac;
+    }
+    
+    .pos-adv .ruby-base {
+        color: #86efac;
+    }
+    
+    .pos-aux {
+        border-bottom-color: #d8b4fe;
+    }
+    
+    .pos-aux .ruby-base {
+        color: #d8b4fe;
+    }
+    
+    .pos-part {
+        border-bottom-color: #f0abfc;
+    }
+    
+    .pos-part .ruby-base {
+        color: #f0abfc;
+    }
+    
+    .pos-cconj {
+        border-bottom-color: #fb7185;
+    }
+    
+    .pos-cconj .ruby-base {
+        color: #fb7185;
+    }
+    
+    .pos-sconj {
+        border-bottom-color: #f472b6;
+    }
+    
+    .pos-sconj .ruby-base {
+        color: #f472b6;
+    }
+    
+    .pos-num {
+        border-bottom-color: #fdba74;
+    }
+    
+    .pos-num .ruby-base {
+        color: #fdba74;
+    }
+    
+    .pos-pron {
+        border-bottom-color: #a5b4fc;
+    }
+    
+    .pos-pron .ruby-base {
+        color: #a5b4fc;
+    }
+    
+    .pos-intj {
+        border-bottom-color: #f472b6;
+    }
+    
+    .pos-intj .ruby-base {
+        color: #f472b6;
+    }
+    
+    .pos-punct,
+    .pos-symbol,
+    .pos-x {
+        border-bottom-color: #d1d5db;
+    }
+    
+    .pos-punct .ruby-base,
+    .pos-symbol .ruby-base,
+    .pos-x .ruby-base {
+        color: #d1d5db;
+    }
+    
+    .pos-legend-item {
+        background-color: #374151;
+    }
+    
+    .pos-legend-item:hover {
+        background-color: #4b5563;
+    }
+    
+    .pos-legend-label {
+        color: #f3f4f6;
+    }
+}

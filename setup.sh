@@ -90,13 +90,15 @@ echo "✓ 數據庫已初始化"
 # 創建 ecosystem.config.js
 echo ""
 echo "📝 創建 PM2 配置文件..."
+pm2 delete japan-dict-tool > /dev/null 2>&1
+
 cat > ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [
     {
       name: 'japan-dict-tool',
-      script: 'venv/bin/uvicorn',
-      args: 'app:app --host 127.0.0.1 --port 8000',
+      script: 'run.sh',
+      interpreter: 'sh',
       instances: 1,
       exec_mode: 'fork',
       env: {
@@ -155,8 +157,8 @@ echo "  重啟應用: pm2 restart japan-dict-tool"
 echo "  停止應用: pm2 stop japan-dict-tool"
 echo ""
 echo "🌐 訪問應用："
-echo "  http://localhost:8000"
-echo "  API 文檔: http://localhost:8000/docs"
+echo "  http://localhost:8888"
+echo "  API 文檔: http://localhost:8888/docs"
 echo ""
 echo "📦 遠程部署 (需要配置 DEPLOY_USER, DEPLOY_HOST, DEPLOY_KEY):"
 echo "  pm2 deploy ecosystem.config.js production setup"

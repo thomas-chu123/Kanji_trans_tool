@@ -2,8 +2,8 @@ module.exports = {
   apps: [
     {
       name: 'japan-dict-tool',
-      script: './venv/bin/python',
-      args: '-m uvicorn app:app --host 127.0.0.1 --port 8000',
+      script: 'run.sh',
+      interpreter: 'sh',
       instances: 1,
       exec_mode: 'fork',
       env: {
