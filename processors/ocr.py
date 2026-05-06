@@ -5,6 +5,7 @@ OCR 文字識別模塊
 
 import logging
 import io
+import numpy as np
 from PIL import Image
 from paddleocr import PaddleOCR
 
@@ -54,11 +55,14 @@ async def extract_text_from_image(file_content: bytes) -> str:
         
         logger.info(f"✓ 圖片已加載，尺寸：{image.size}")
         
+        # 轉換 PIL Image 為 numpy array（PaddleOCR 需要的格式）
+        img_array = np.array(image)
+        
         # 初始化 OCR 讀取器
         reader = initialize_ocr()
         
-        # 進行 OCR 識別 (PaddleOCR 返回 [[[x,y],...], text, confidence], ...] 格式)
-        results = reader.ocr(image, cls=True)
+        # 進行 OCR 識別 (傳入 numpy array)
+        results = reader.ocr(img_array, cls=True)
         
         if not results or not results[0]:
             logger.warning("⚠️  OCR 未識別到文字")
