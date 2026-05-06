@@ -21,9 +21,9 @@ def initialize_ocr():
         try:
             logger.info("🔤 初始化 PaddleOCR 讀取器...")
             _reader = PaddleOCR(
-                use_angle_cls=True,  # 支援旋轉的文字
-                lang='japan',         # 主要語言設為日文
-                ocr_version='PP-OCRv4'  # 使用最新版本
+                use_angle_cls=True,      # 支援旋轉的文字
+                lang='japan',            # 日文語言代碼
+                ocr_version='PP-OCRv3'   # 使用 PP-OCRv3 版本
             )
             logger.info("✓ PaddleOCR 讀取器已初始化")
         except Exception as e:

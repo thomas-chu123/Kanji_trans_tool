@@ -221,11 +221,24 @@ async def convert_text(
         elif file:
             # 讀取上傳的文件
             content = await file.read()
-            file_ext = Path(file.filename).suffix.lower()
+            
+            # 正確處理 UTF-8 中文檔名
+            filename = file.filename
+            if filename:
+                try:
+                    # 嘗試 UTF-8 解碼（支援中文檔名）
+                    filename = filename.encode('latin-1').decode('utf-8')
+                except (UnicodeDecodeError, UnicodeEncodeError):
+                    # 如果失敗，保持原檔名
+                    pass
+            
+            file_ext = Path(filename).suffix.lower() if filename else ""
+            
+            logger.info(f"📂 上傳檔案: {filename} (大小: {len(content)} bytes)")
             
             # 圖片 OCR 處理
             if file_ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
-                logger.info(f"🖼️  檢測到圖片文件: {file.filename}")
+                logger.info(f"🖼️  檢測到圖片文件")
                 try:
                     from processors.ocr import extract_text_from_image
                     input_text = await extract_text_from_image(content)
@@ -234,7 +247,7 @@ async def convert_text(
                     raise ValueError(f"圖片識別失敗：{str(ocr_error)}")
             else:
                 # 文本文件編碼處理
-                logger.info(f"📄 檢測到文本文件: {file.filename}")
+                logger.info(f"📄 檢測到文本文件")
                 for encoding in ['utf-8', 'utf-8-sig', 'shift_jis', 'gbk']:
                     try:
                         input_text = content.decode(encoding).strip()
