@@ -277,6 +277,7 @@
     const translationId = {{ translation_id }};
     const isFavorite = {{ is_favorite | lower }};
     const resultHtml = `{{ result_html | safe }}`;
+    const originalText = {{ input_text | tojson }};  // 使用 tojson 安全转义
 
     // 複製結果文本
     function copyToClipboard() {
@@ -448,37 +449,37 @@
     // 音声播放功能 (Web Speech API)
     // ========================================
     let currentUtterance = null;
+    let currentSpeedSlider = 'speedSlider';
+    let isStopping = false;  // 標記是否由用戶主動停止
 
     // 播放原始文本
     function speakOriginalText() {
-        const text = '{{ input_text }}';
-        const rate = parseFloat(document.getElementById('speedSlider').value);
-        playJapaneseText(text, rate);
+        const text = (originalText || '').trim();
+        if (!text) {
+            alert('❌ 無法獲取文本');
+            return;
+        }
+        const rate = parseFloat(document.getElementById('speedSlider').value) || 1.0;
+        playText(text, rate);
     }
 
-    // 播放轉換結果（提取純文本，不含HTML標籤）
+    // 播放轉換結果
     function speakResultText() {
-        const resultDiv = document.querySelector('.ruby-group');
-        const container = resultDiv ? resultDiv.closest('.bg-white') : null;
-        let text = '';
-        
-        if (container) {
-            // 提取所有ruby-group中的ruby-base文本
-            const baseElements = container.querySelectorAll('.ruby-base');
-            text = Array.from(baseElements).map(el => el.textContent).join('');
-        }
+        // 從 ruby-base 元素提取文本
+        const baseElements = document.querySelectorAll('.ruby-base');
+        const text = Array.from(baseElements).map(el => el.textContent).join('').trim();
         
         if (!text) {
             alert('❌ 無法取得轉換結果文本');
             return;
         }
         
-        const rate = parseFloat(document.getElementById('speedSliderResult').value);
-        playJapaneseText(text, rate);
+        const rate = parseFloat(document.getElementById('speedSliderResult').value) || 1.0;
+        playText(text, rate);
     }
 
-    // 播放日文文本
-    function playJapaneseText(text, rate = 1.0) {
+    // 播放文本
+    function playText(text, rate) {
         // 檢查瀏覽器支持
         if (!('speechSynthesis' in window)) {
             alert('❌ 您的瀏覽器不支持音声播放功能');
@@ -492,10 +493,10 @@
 
         // 建立新的語音實例
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP';  // 日文
-        utterance.rate = rate;      // 語速（0.1 - 10）
-        utterance.pitch = 1.0;      // 音調
-        utterance.volume = 1.0;     // 音量
+        utterance.lang = 'ja-JP';
+        utterance.rate = Math.max(0.1, Math.min(rate, 10));
+        utterance.pitch = 1.0;
+        utterance.volume = 1.0;
 
         // 事件監聽
         utterance.onstart = () => {
@@ -508,8 +509,18 @@
         };
 
         utterance.onerror = (e) => {
-            console.error('❌ 播放出錯:', e);
-            alert('❌ 播放失敗，請檢查網絡或重試');
+            // 如果是用户主动停止，不显示错误信息
+            if (isStopping) {
+                console.log('⏹️ 用户已停止播放');
+                return;
+            }
+            
+            console.error('❌ 播放錯誤:', e.error);
+            let msg = '❌ 播放失敗';
+            if (e.error === 'synthesis-unavailable') {
+                msg = '❌ 系統可能沒有日文語音包\n請在系統設置中安裝日文語音';
+            }
+            alert(msg);
         };
 
         currentUtterance = utterance;
@@ -518,34 +529,34 @@
 
     // 停止播放
     function stopSpeech() {
-        if (window.speechSynthesis.speaking) {
+        if (window.speechSynthesis && window.speechSynthesis.speaking) {
+            isStopping = true;  // 标记为用户主动停止
             window.speechSynthesis.cancel();
             currentUtterance = null;
+            isStopping = false;  // 重置标记
             console.log('⏹️ 已停止播放');
         }
     }
 
-    // 更新語速顯示標籤
+    // 更新語速顯示
     function updateSpeedLabel() {
         const slider = document.getElementById('speedSlider');
         const sliderResult = document.getElementById('speedSliderResult');
         
         if (slider) {
-            const speedLabel = document.getElementById('speedLabel');
-            speedLabel.textContent = slider.value + 'x';
+            document.getElementById('speedLabel').textContent = slider.value + 'x';
         }
-        
         if (sliderResult) {
-            const speedLabelResult = document.getElementById('speedLabelResult');
-            speedLabelResult.textContent = sliderResult.value + 'x';
+            document.getElementById('speedLabelResult').textContent = sliderResult.value + 'x';
         }
     }
 
-    // 設定兩個滑塊同步
-    document.addEventListener('DOMContentLoaded', () => {
+    // 頁面加載完成後初始化
+    window.addEventListener('DOMContentLoaded', () => {
         const slider = document.getElementById('speedSlider');
         const sliderResult = document.getElementById('speedSliderResult');
         
+        // 同步滑塊
         if (slider && sliderResult) {
             slider.addEventListener('input', (e) => {
                 sliderResult.value = e.target.value;

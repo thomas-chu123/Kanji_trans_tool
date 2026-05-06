@@ -35,4 +35,4 @@ echo "================================"
 echo ""
 
 # 啟動 FastAPI 開發服務器
-python -m uvicorn app:app --host 127.0.0.1 --port 8888 --reload
+python -m uvicorn app:app --host 0.0.0.0 --port 8888 --reload
