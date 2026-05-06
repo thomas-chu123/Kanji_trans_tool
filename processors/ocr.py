@@ -93,7 +93,7 @@ async def extract_text_from_image(file_content: bytes) -> str:
         reader = initialize_ocr()
         
         # 進行 OCR 識別 (傳入 numpy array)
-        results = reader.ocr(img_array, cls=True)
+        results = reader.ocr(img_array)
         
         if not results or not results[0]:
             logger.warning("⚠️  OCR 未識別到文字")
