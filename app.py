@@ -221,17 +221,29 @@ async def convert_text(
         elif file:
             # 讀取上傳的文件
             content = await file.read()
+            file_ext = Path(file.filename).suffix.lower()
             
-            # 嘗試不同的編碼
-            for encoding in ['utf-8', 'utf-8-sig', 'shift_jis', 'gbk']:
+            # 圖片 OCR 處理
+            if file_ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp']:
+                logger.info(f"🖼️  檢測到圖片文件: {file.filename}")
                 try:
-                    input_text = content.decode(encoding).strip()
-                    break
-                except (UnicodeDecodeError, LookupError):
-                    continue
-            
-            if input_text is None:
-                raise ValueError("無法識別文件編碼")
+                    from processors.ocr import extract_text_from_image
+                    input_text = await extract_text_from_image(content)
+                except Exception as ocr_error:
+                    logger.error(f"❌ OCR 處理失敗: {ocr_error}")
+                    raise ValueError(f"圖片識別失敗：{str(ocr_error)}")
+            else:
+                # 文本文件編碼處理
+                logger.info(f"📄 檢測到文本文件: {file.filename}")
+                for encoding in ['utf-8', 'utf-8-sig', 'shift_jis', 'gbk']:
+                    try:
+                        input_text = content.decode(encoding).strip()
+                        break
+                    except (UnicodeDecodeError, LookupError):
+                        continue
+                
+                if input_text is None:
+                    raise ValueError("無法識別文件編碼")
         
         if not input_text:
             raise ValueError("輸入內容為空")
