@@ -251,36 +251,57 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
     tokens: List[ProcessedToken] = []
     
     try:
-        # 使用 PyKakasi 進行轉換
-        result = kakasi.convert(text)
+        # 📌 修復 PyKakasi 換行符 bug：按行處理文本
+        # PyKakasi 在換行符附近會產生重複的 token，因此分行處理
+        lines = text.split('\n')
+        first_line = True
         
-        for item in result:
-            original = item['orig']
-            # PyKakasi 直接提供 hiragana（hira 字段）
-            hiragana = item.get('hira', '')
-            romanji = item.get('hepburn', item.get('romaji', ''))
+        for line in lines:
+            if not first_line:
+                # 在行之間添加換行符 token
+                tokens.append(ProcessedToken(
+                    original='\n',
+                    hiragana='',
+                    romanji='',
+                    token_type='space',
+                    pos_tag=None
+                ))
+            first_line = False
             
-            # 簡化羅馬音長音
-            if simplify_long_vowels:
-                romanji = simplify_romanization(romanji)
+            if not line:
+                # 空行跳過
+                continue
             
-            token_type = determine_token_type(original)
+            # 對每一行單獨進行 PyKakasi 轉換
+            result = kakasi.convert(line)
             
-            # 獲取詞性標籤（僅對非空格、非符號的詞彙）
-            pos_tag = None
-            if token_type not in ["space", "symbol"]:
-                pos_tag = get_pos_tag(original)
-            
-            token = ProcessedToken(
-                original=original,
-                hiragana=hiragana,
-                romanji=romanji,
-                token_type=token_type,
-                pos_tag=pos_tag
-            )
-            tokens.append(token)
+            for item in result:
+                original = item['orig']
+                # PyKakasi 直接提供 hiragana（hira 字段）
+                hiragana = item.get('hira', '')
+                romanji = item.get('hepburn', item.get('romaji', ''))
+                
+                # 簡化羅馬音長音
+                if simplify_long_vowels:
+                    romanji = simplify_romanization(romanji)
+                
+                token_type = determine_token_type(original)
+                
+                # 獲取詞性標籤（僅對非空格、非符號的詞彙）
+                pos_tag = None
+                if token_type not in ["space", "symbol"]:
+                    pos_tag = get_pos_tag(original)
+                
+                token = ProcessedToken(
+                    original=original,
+                    hiragana=hiragana,
+                    romanji=romanji,
+                    token_type=token_type,
+                    pos_tag=pos_tag
+                )
+                tokens.append(token)
         
-        logger.info(f"✓ 文本已處理: {len(text)} 字 → {len(tokens)} 詞")
+        logger.info(f"✓ 文本已處理: {len(text)} 字 → {len(tokens)} 詞 (已修復換行符重複問題)")
         return tokens
         
     except Exception as e:
