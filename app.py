@@ -312,13 +312,15 @@ async def convert_text(
         logger.warning(f"⚠️  驗證錯誤: {e}")
         return JSONResponse(
             status_code=400,
-            content={"success": False, "error": str(e)}
+            content={"success": False, "error": str(e)},
+            media_type="application/json; charset=utf-8"
         )
     except Exception as e:
         logger.error(f"❌ 轉換失敗: {e}")
         return JSONResponse(
             status_code=500,
-            content={"success": False, "error": "轉換失敗，請重試"}
+            content={"success": False, "error": "轉換失敗，請重試"},
+            media_type="application/json; charset=utf-8"
         )
 
 
@@ -358,7 +360,8 @@ async def mark_favorite(request: Request):
         logger.error(f"標記收藏失敗: {e}")
         return JSONResponse(
             status_code=400,
-            content={"success": False, "error": str(e)}
+            content={"success": False, "error": str(e)},
+            media_type="application/json; charset=utf-8"
         )
 
 
@@ -382,7 +385,8 @@ async def unmark_favorite(translation_id: int):
         logger.error(f"取消收藏失敗: {e}")
         return JSONResponse(
             status_code=400,
-            content={"success": False, "error": str(e)}
+            content={"success": False, "error": str(e)},
+            media_type="application/json; charset=utf-8"
         )
 
 
@@ -405,7 +409,8 @@ async def get_stats():
         logger.error(f"獲取統計信息失敗: {e}")
         return JSONResponse(
             status_code=500,
-            content={"error": "無法獲取統計信息"}
+            content={"error": "無法獲取統計信息"},
+            media_type="application/json; charset=utf-8"
         )
 
 
