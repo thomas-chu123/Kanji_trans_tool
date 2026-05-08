@@ -225,6 +225,9 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
     """
     輸入日文文本，輸出結構化數據
     
+    改進版本：使用 Fugashi（MeCab）進行詞級別形態素解析，
+    然後用 PyKakasi 轉換假名。這樣能正確識別日文詞邊界。
+    
     Args:
         text: 日文文本（支持混合假名、漢字、符號）
         simplify_long_vowels: 是否簡化羅馬音長音（ou→ou, uu→uu）
@@ -248,11 +251,12 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
         logger.error("PyKakasi 實例不可用")
         raise RuntimeError("日文處理引擎初始化失敗")
     
+    tagger = get_tagger()
+    
     tokens: List[ProcessedToken] = []
     
     try:
-        # 📌 修復 PyKakasi 換行符 bug：按行處理文本
-        # PyKakasi 在換行符附近會產生重複的 token，因此分行處理
+        # 按行處理文本（解決 PyKakasi 換行符 bug）
         lines = text.split('\n')
         first_line = True
         
@@ -272,40 +276,96 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
                 # 空行跳過
                 continue
             
-            # 對每一行單獨進行 PyKakasi 轉換
-            result = kakasi.convert(line)
-            
-            for item in result:
-                original = item['orig']
-                # PyKakasi 直接提供 hiragana（hira 字段）
-                hiragana = item.get('hira', '')
-                romanji = item.get('hepburn', item.get('romaji', ''))
+            # 🔄 優先使用 Fugashi 進行詞級別形態素解析（改善斷詞）
+            if tagger is not None:
+                morphemes = tagger(line)
                 
-                # 簡化羅馬音長音
-                if simplify_long_vowels:
-                    romanji = simplify_romanization(romanji)
+                for morpheme in morphemes:
+                    original = morpheme.surface  # 表層形式（原文）
+                    
+                    # 跳過純空格
+                    if original.isspace():
+                        tokens.append(ProcessedToken(
+                            original=original,
+                            hiragana='',
+                            romanji='',
+                            token_type='space',
+                            pos_tag=None
+                        ))
+                        continue
+                    
+                    token_type = determine_token_type(original)
+                    
+                    # 獲取詞性標籤
+                    pos_tag = None
+                    if token_type not in ["space", "symbol"]:
+                        # 優先使用 Fugashi 的詞性信息
+                        try:
+                            pos_info = morpheme.feature.pos1
+                            # 對應到 POS_TO_CSS_CLASS
+                            if pos_info in POS_TO_CSS_CLASS:
+                                pos_tag = pos_info
+                            else:
+                                # 備用：使用 get_pos_tag
+                                pos_tag = get_pos_tag(original)
+                        except:
+                            pos_tag = get_pos_tag(original)
+                    
+                    # 使用 PyKakasi 獲取假名和羅馬音
+                    hiragana = ''
+                    romanji = ''
+                    
+                    if token_type not in ["space", "symbol"]:
+                        kakasi_result = kakasi.convert(original)
+                        if kakasi_result:
+                            kakasi_item = kakasi_result[0]
+                            hiragana = kakasi_item.get('hira', '')
+                            romanji = kakasi_item.get('hepburn', kakasi_item.get('romaji', ''))
+                            
+                            # 簡化羅馬音長音
+                            if simplify_long_vowels:
+                                romanji = simplify_romanization(romanji)
+                    
+                    token = ProcessedToken(
+                        original=original,
+                        hiragana=hiragana,
+                        romanji=romanji,
+                        token_type=token_type,
+                        pos_tag=pos_tag
+                    )
+                    tokens.append(token)
+            else:
+                # 備用方案：如果 Fugashi 不可用，使用原來的 PyKakasi 方法
+                logger.warning("⚠️  Fugashi 不可用，使用備用的字符級處理")
+                result = kakasi.convert(line)
                 
-                token_type = determine_token_type(original)
-                
-                # 獲取詞性標籤（僅對非空格、非符號的詞彙）
-                pos_tag = None
-                if token_type not in ["space", "symbol"]:
-                    pos_tag = get_pos_tag(original)
-                
-                token = ProcessedToken(
-                    original=original,
-                    hiragana=hiragana,
-                    romanji=romanji,
-                    token_type=token_type,
-                    pos_tag=pos_tag
-                )
-                tokens.append(token)
+                for item in result:
+                    original = item['orig']
+                    hiragana = item.get('hira', '')
+                    romanji = item.get('hepburn', item.get('romaji', ''))
+                    
+                    if simplify_long_vowels:
+                        romanji = simplify_romanization(romanji)
+                    
+                    token_type = determine_token_type(original)
+                    pos_tag = None
+                    if token_type not in ["space", "symbol"]:
+                        pos_tag = get_pos_tag(original)
+                    
+                    token = ProcessedToken(
+                        original=original,
+                        hiragana=hiragana,
+                        romanji=romanji,
+                        token_type=token_type,
+                        pos_tag=pos_tag
+                    )
+                    tokens.append(token)
         
-        logger.info(f"✓ 文本已處理: {len(text)} 字 → {len(tokens)} 詞 (已修復換行符重複問題)")
+        logger.info(f"✓ 文本已處理: {len(text)} 字 → {len(tokens)} 詞 (詞級別斷詞改進)")
         return tokens
         
     except Exception as e:
-        logger.error(f"PyKakasi 處理失敗: {e}")
+        logger.error(f"文本處理失敗: {e}")
         raise RuntimeError(f"文本處理失敗: {e}")
 
 
