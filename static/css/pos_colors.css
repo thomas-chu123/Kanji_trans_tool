@@ -231,12 +231,12 @@
    ======================================== */
 
 span.number {
-    display: inline;
+    display: inline-block;
     font-size: 1em;
     font-weight: 600;
     color: #78350f;  /* 棕色 */
     border-bottom: 3px solid #b45309;
-    padding-bottom: 2px;
+    padding-bottom: 6px;
     vertical-align: baseline;
 }
 
@@ -244,7 +244,9 @@ span.symbol {
     color: #6b7280;   /* 灰色 */
     margin: 0 1px;
     border-bottom: 2px solid #d1d5db;
-    padding-bottom: 2px;
+    padding-bottom: 6px;
+    display: inline-block;
+    vertical-align: baseline;
 }
 
 
