@@ -56,7 +56,12 @@
                             hover:file:from-indigo-600 hover:file:to-purple-600
                             transition"
                     />
-                    <p class="mt-2 text-xs text-gray-500">支持上傳 .txt、.pdf 文件和 .jpg、.png 圖片（OCR 識別），最大 5MB</p>
+                    <div class="mt-3 flex justify-between text-sm">
+                        <p class="text-xs text-gray-500">支持上傳 .txt、.pdf 文件和 .jpg、.png 圖片（OCR 識別），最大 5MB</p>
+                        <button type="button" onclick="clearFile()" class="text-indigo-600 hover:text-indigo-700 underline">
+                            清空
+                        </button>
+                    </div>
                 </div>
 
                 <!-- 轉換選項 -->
@@ -198,6 +203,11 @@
     function clearInput() {
         document.getElementById('inputText').value = '';
         document.getElementById('charCount').textContent = '0';
+    }
+
+    // 清空文件上傳
+    function clearFile() {
+        document.getElementById('fileUpload').value = '';
     }
 
     // 載入最近記錄
