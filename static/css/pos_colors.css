@@ -232,13 +232,13 @@
 
 span.number {
     display: inline-block;
-    font-size: 1em;
+    font-size: 1.1em;
     font-weight: 600;
     color: #78350f;  /* 棕色 */
     border-bottom: 3px solid #b45309;
     padding-bottom: 6px;
     vertical-align: baseline;
-    transform: translateY(6px);
+    transform: translateY(-2px);
 }
 
 span.symbol {
