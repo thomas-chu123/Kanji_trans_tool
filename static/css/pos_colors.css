@@ -238,7 +238,7 @@ span.number {
     border-bottom: 3px solid #b45309;
     padding-bottom: 6px;
     vertical-align: baseline;
-    transform: translateY(-2px);
+    transform: translateY(-4px);
 }
 
 span.symbol {
