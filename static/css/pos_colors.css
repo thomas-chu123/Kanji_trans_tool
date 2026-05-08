@@ -236,8 +236,9 @@ span.number {
     font-weight: 600;
     color: #78350f;  /* 棕色 */
     border-bottom: 3px solid #b45309;
-    padding-bottom: 12px;
+    padding-bottom: 6px;
     vertical-align: baseline;
+    transform: translateY(6px);
 }
 
 span.symbol {
