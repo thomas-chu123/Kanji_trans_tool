@@ -99,6 +99,23 @@ async def extract_text_from_image(file_content: bytes) -> str:
         
         logger.info(f"✓ 圖片已加載，尺寸：{image.size}")
         
+        # 檢查圖片尺寸，如果超過 4000 像素則調整大小
+        width, height = image.size
+        max_size_limit = 4000
+        if width > max_size_limit or height > max_size_limit:
+            logger.warning(f"⚠️  圖片尺寸 ({width}x{height}) 超過 {max_size_limit} 像素限制，正在調整...")
+            
+            # 計算縮放比例
+            scale_ratio = max_size_limit / max(width, height)
+            new_width = int(width * scale_ratio)
+            new_height = int(height * scale_ratio)
+            
+            logger.info(f"📐 將圖片從 ({width}x{height}) 調整為 ({new_width}x{new_height})")
+            
+            # 使用高質量的重採樣方法
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            logger.info(f"✓ 圖片已調整大小")
+        
         # 預處理圖片
         image = preprocess_image(image)
         
