@@ -221,12 +221,228 @@ def determine_token_type(text: str) -> str:
         return "symbol"
 
 
+def merge_verb_forms(tokens: List[ProcessedToken]) -> List[ProcessedToken]:
+    """
+    後處理：合併日語動詞的變位形式
+    
+    規則：
+    1. 「て」+ 「いる」→「ている」（進行時）
+    2. 「て」+ 「い」+ 「た」→「ていた」（過去進行時）
+    3. 「と」+ 「し」+ 「て」→「として」（作為）
+    4. 「せ」+ 「た」→「せた」（使役過去）
+    5. 「わ」+ 「せ」+ 「た」→「わせた」（使役被動過去）
+    6. 其他以「て」結尾的動詞 + 助詞「て」之後的補助動詞
+    
+    Args:
+        tokens: 原始 token 列表
+    
+    Returns:
+        合併後的 token 列表
+    """
+    if not tokens or len(tokens) < 2:
+        return tokens
+    
+    merged = []
+    i = 0
+    
+    while i < len(tokens):
+        current = tokens[i]
+        
+        # 檢查可以合併的模式
+        merged_token = None
+        
+        # 模式 1: 「て」+ 「いる」→「ている」
+        if (i + 1 < len(tokens) and 
+            current.original == 'て' and current.pos_tag == '助詞' and
+            tokens[i+1].original == 'いる' and tokens[i+1].pos_tag == '動詞'):
+            merged_token = ProcessedToken(
+                original='ている',
+                hiragana='ている',
+                romanji='teiru',
+                token_type='hiragana',
+                pos_tag='動詞'
+            )
+            i += 2
+        
+        # 模式 2: 「て」+ 「い」+ 「た」→「ていた」
+        elif (i + 2 < len(tokens) and
+              current.original == 'て' and current.pos_tag == '助詞' and
+              tokens[i+1].original == 'い' and tokens[i+1].pos_tag == '動詞' and
+              tokens[i+2].original == 'た' and tokens[i+2].pos_tag == '助動詞'):
+            merged_token = ProcessedToken(
+                original='ていた',
+                hiragana='ていた',
+                romanji='teita',
+                token_type='hiragana',
+                pos_tag='動詞'
+            )
+            i += 3
+        
+        # 模式 3: 「と」+ 「し」+ 「て」→「として」
+        elif (i + 2 < len(tokens) and
+              current.original == 'と' and current.pos_tag == '助詞' and
+              tokens[i+1].original == 'し' and tokens[i+1].pos_tag == '動詞' and
+              tokens[i+2].original == 'て' and tokens[i+2].pos_tag == '助詞'):
+            merged_token = ProcessedToken(
+                original='として',
+                hiragana='として',
+                romanji='toshite',
+                token_type='hiragana',
+                pos_tag='助詞'
+            )
+            i += 3
+        
+        # 模式 4: 「し」+ 「て」+ 「い」+ 「た」→「していた」
+        elif (i + 3 < len(tokens) and
+              current.original == 'し' and current.pos_tag == '動詞' and
+              tokens[i+1].original == 'て' and tokens[i+1].pos_tag == '助詞' and
+              tokens[i+2].original == 'い' and tokens[i+2].pos_tag == '動詞' and
+              tokens[i+3].original == 'た' and tokens[i+3].pos_tag == '助動詞'):
+            merged_token = ProcessedToken(
+                original='していた',
+                hiragana='していた',
+                romanji='shiteita',
+                token_type='hiragana',
+                pos_tag='動詞'
+            )
+            i += 4
+        
+        # 模式 5: 動詞 + 「せ」+ 「た」→「～せた」（使役過去，如：負わせた）
+        elif (i + 2 < len(tokens) and
+              current.pos_tag == '動詞' and
+              tokens[i+1].original == 'せ' and tokens[i+1].pos_tag == '助動詞' and
+              tokens[i+2].original == 'た' and tokens[i+2].pos_tag == '助動詞'):
+            # 直接合併原文、假名和羅馬音
+            merged_original = current.original + tokens[i+1].original + tokens[i+2].original
+            merged_hiragana = current.hiragana + tokens[i+1].hiragana + tokens[i+2].hiragana
+            merged_romanji = current.romanji + tokens[i+1].romanji + tokens[i+2].romanji
+            
+            merged_token = ProcessedToken(
+                original=merged_original,
+                hiragana=merged_hiragana,
+                romanji=merged_romanji,
+                token_type=determine_token_type(merged_original),
+                pos_tag='動詞'
+            )
+            i += 3
+        
+        # 模式 6: 漢字動詞 + 「て」+ 「いる」→「見ている」
+        elif (i + 2 < len(tokens) and
+              current.pos_tag == '動詞' and current.token_type == 'kanji' and
+              tokens[i+1].original == 'て' and tokens[i+1].pos_tag == '助詞' and
+              tokens[i+2].original == 'いる' and tokens[i+2].pos_tag == '動詞'):
+            # 合併原文
+            merged_original = current.original + tokens[i+1].original + tokens[i+2].original
+            
+            # 對於漢字動詞的 て + いる 形式，需要查詢基本形式獲得正確假名和羅馬音
+            kakasi = get_kakasi_instance()
+            merged_hiragana = None
+            merged_romanji = None
+            
+            if kakasi:
+                # 嘗試查詢漢字 + る 形式來獲得正確的假名
+                base_form = current.original + 'る'
+                kakasi_result = kakasi.convert(base_form)
+                if kakasi_result:
+                    base_item = kakasi_result[0]
+                    base_hira = base_item.get('hira', '')
+                    base_roman = base_item.get('hepburn', '')
+                    
+                    # 移除「る」，得到詞幹
+                    if base_hira.endswith('る'):
+                        stem_hira = base_hira[:-1]  # 「み」
+                        # 從羅馬音推導（如 miru → mi + teiru）
+                        if base_roman.endswith('ru'):
+                            stem_roman = base_roman[:-2]  # 「mi」
+                            merged_hiragana = stem_hira + 'ている'
+                            merged_romanji = stem_roman + 'teiru'
+                        else:
+                            # 備用
+                            merged_hiragana = stem_hira + 'ている'
+                            merged_romanji = base_roman + 'teiru'
+            
+            # 備用方案
+            if not merged_hiragana:
+                merged_hiragana = current.hiragana + 'ている'
+                merged_romanji = current.romanji + 'teiru'
+            
+            merged_token = ProcessedToken(
+                original=merged_original,
+                hiragana=merged_hiragana,
+                romanji=merged_romanji,
+                token_type='kanji',
+                pos_tag='動詞'
+            )
+            i += 3
+        
+        # 模式 7: 漢字動詞 + 「て」+ 「い」+ 「た」→「見ていた」
+        elif (i + 3 < len(tokens) and
+              current.pos_tag == '動詞' and current.token_type == 'kanji' and
+              tokens[i+1].original == 'て' and tokens[i+1].pos_tag == '助詞' and
+              tokens[i+2].original == 'い' and tokens[i+2].pos_tag == '動詞' and
+              tokens[i+3].original == 'た' and tokens[i+3].pos_tag == '助動詞'):
+            # 合併原文
+            merged_original = current.original + tokens[i+1].original + tokens[i+2].original + tokens[i+3].original
+            
+            # 對於漢字動詞的 て + い + た 形式，需要查詢基本形式獲得正確假名和羅馬音
+            kakasi = get_kakasi_instance()
+            merged_hiragana = None
+            merged_romanji = None
+            
+            if kakasi:
+                # 嘗試查詢漢字 + る 形式來獲得正確的假名
+                base_form = current.original + 'る'
+                kakasi_result = kakasi.convert(base_form)
+                if kakasi_result:
+                    base_item = kakasi_result[0]
+                    base_hira = base_item.get('hira', '')
+                    base_roman = base_item.get('hepburn', '')
+                    
+                    # 移除「る」，得到詞幹
+                    if base_hira.endswith('る'):
+                        stem_hira = base_hira[:-1]  # 「み」
+                        # 從羅馬音推導（如 miru → mi + teita）
+                        if base_roman.endswith('ru'):
+                            stem_roman = base_roman[:-2]  # 「mi」
+                            merged_hiragana = stem_hira + 'ていた'
+                            merged_romanji = stem_roman + 'teita'
+                        else:
+                            # 備用
+                            merged_hiragana = stem_hira + 'ていた'
+                            merged_romanji = base_roman + 'teita'
+            
+            # 備用方案
+            if not merged_hiragana:
+                merged_hiragana = current.hiragana + 'ていた'
+                merged_romanji = current.romanji + 'teita'
+            
+            merged_token = ProcessedToken(
+                original=merged_original,
+                hiragana=merged_hiragana,
+                romanji=merged_romanji,
+                token_type='kanji',
+                pos_tag='動詞'
+            )
+            i += 4
+
+
+        
+        if merged_token:
+            merged.append(merged_token)
+        else:
+            merged.append(current)
+            i += 1
+    
+    return merged
+
+
+
 def process_text(text: str, simplify_long_vowels: bool = True) -> List[ProcessedToken]:
     """
     輸入日文文本，輸出結構化數據
     
     改進版本：使用 Fugashi（MeCab）進行詞級別形態素解析，
-    然後用 PyKakasi 轉換假名。這樣能正確識別日文詞邊界。
+    然後用 PyKakasi 轉換假名。並在後處理中合併動詞變位形式。
     
     Args:
         text: 日文文本（支持混合假名、漢字、符號）
@@ -279,13 +495,14 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
             # 🔄 優先使用 Fugashi 進行詞級別形態素解析（改善斷詞）
             if tagger is not None:
                 morphemes = tagger(line)
+                line_tokens: List[ProcessedToken] = []
                 
                 for morpheme in morphemes:
                     original = morpheme.surface  # 表層形式（原文）
                     
                     # 跳過純空格
                     if original.isspace():
-                        tokens.append(ProcessedToken(
+                        line_tokens.append(ProcessedToken(
                             original=original,
                             hiragana='',
                             romanji='',
@@ -333,7 +550,11 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
                         token_type=token_type,
                         pos_tag=pos_tag
                     )
-                    tokens.append(token)
+                    line_tokens.append(token)
+                
+                # ✨ 新增：後處理，合併動詞變位形式
+                line_tokens = merge_verb_forms(line_tokens)
+                tokens.extend(line_tokens)
             else:
                 # 備用方案：如果 Fugashi 不可用，使用原來的 PyKakasi 方法
                 logger.warning("⚠️  Fugashi 不可用，使用備用的字符級處理")
@@ -361,7 +582,7 @@ def process_text(text: str, simplify_long_vowels: bool = True) -> List[Processed
                     )
                     tokens.append(token)
         
-        logger.info(f"✓ 文本已處理: {len(text)} 字 → {len(tokens)} 詞 (詞級別斷詞改進)")
+        logger.info(f"✓ 文本已處理: {len(text)} 字 → {len(tokens)} 詞 (已應用動詞變位合併)")
         return tokens
         
     except Exception as e:
