@@ -15,3 +15,5 @@ requests==2.31.0
 paddleocr==3.3.0
 pillow>=10.0.0
 paddlepaddle==3.2.0
+jamdict==0.3.4
+jisho-api==0.1.1

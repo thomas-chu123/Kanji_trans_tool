@@ -22,7 +22,7 @@ from processors import storage
 from processors.translator import translate_to_chinese, initialize_translator
 from processors.jlpt_level import (
     get_kanji_level, get_grammar_level, extract_kanji, extract_grammatical_patterns,
-    extract_vocabulary_with_info, categorize_by_level
+    extract_vocabulary_with_info, categorize_by_level, get_jamdict_instance
 )
 from db.init_db import init_database
 
@@ -72,6 +72,14 @@ async def startup_event():
     # 初始化 PyKakasi
     if not initialize_kakasi():
         logger.warning("⚠️  PyKakasi 初始化失敗，應用可能無法正常工作")
+    
+    # 初始化 JMdict
+    logger.info("📚 初始化 JMdict 詞典...")
+    jam = get_jamdict_instance()
+    if jam:
+        logger.info("✓ JMdict 已成功初始化 - 將提供更完整的詞彙數據")
+    else:
+        logger.warning("⚠️  JMdict 初始化失敗，將使用本地詞彙數據庫")
     
     # 初始化翻譯器
     logger.info("🌐 初始化翻譯器...")

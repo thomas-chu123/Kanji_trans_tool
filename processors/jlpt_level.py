@@ -3,6 +3,7 @@ JLPT 等級查詢模組
 識別日文單字和文法的 JLPT 等級 (N5, N4, N3, N2, N1)
 
 參考：
+- JMdict 日文詞典 (jamdict)
 - JLPT 官方詞彙表（常見詞彙）
 - 文法模式識別
 """
@@ -10,8 +11,37 @@ JLPT 等級查詢模組
 import logging
 from typing import Optional, Dict, Set, Tuple, List
 from functools import lru_cache
+import threading
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# 全局 jamdict 實例和緩存
+# ============================================================================
+_jamdict_instance = None
+_jamdict_lock = threading.Lock()
+_vocabulary_cache = {}  # 詞彙查詢緩存，避免重複查詢
+
+
+def get_jamdict_instance():
+    """
+    獲取 jamdict 實例（单例模式）
+    第一次調用時初始化，之後重用
+    """
+    global _jamdict_instance
+    
+    if _jamdict_instance is None:
+        with _jamdict_lock:
+            if _jamdict_instance is None:
+                try:
+                    from jamdict import Jamdict
+                    _jamdict_instance = Jamdict()
+                    logger.info("✓ JMdict 已初始化成功")
+                except Exception as e:
+                    logger.warning(f"⚠ JMdict 初始化失败：{e}，將使用本地詞彙數據庫")
+                    _jamdict_instance = False  # 標記為失敗，不再嘗試
+    
+    return _jamdict_instance if _jamdict_instance is not False else None
 
 # ============================================================================
 # 詞彙翻譯數據庫 (word: (hiragana_reading, translation, level))
@@ -335,6 +365,130 @@ VOCABULARY_DATABASE = {
     '以': ('い', 'by means of; with', 'N3'),
     '未': ('いまだ', 'still; yet; not yet', 'N3'),
     '非': ('ひ', 'non-; not-', 'N3'),
+    
+    # 更多 N3 常用词汇
+    '増': ('ふ える', 'to increase; grow', 'N3'),
+    '増える': ('ふえる', 'to increase; grow', 'N3'),
+    '減': ('へ る', 'to decrease; reduce', 'N3'),
+    '減る': ('へる', 'to decrease; reduce', 'N3'),
+    '成': ('な る', 'to become; consist', 'N3'),
+    '成る': ('なる', 'to become; consist', 'N3'),
+    '成長': ('せいちょう', 'growth; development', 'N3'),
+    '性': ('せい', 'nature; sex; quality', 'N3'),
+    '質': ('しつ', 'quality; substance', 'N3'),
+    '定': ('さだ める', 'to determine; settle', 'N3'),
+    '定める': ('さだめる', 'to determine; settle', 'N3'),
+    '確': ('たし か', 'certainly; sure', 'N3'),
+    '確か': ('たしか', 'certainly; sure', 'N3'),
+    '確認': ('かくにん', 'confirmation; verification', 'N3'),
+    '注': ('ちゅう', 'attention; note', 'N3'),
+    '注目': ('ちゅうもく', 'attention; note', 'N3'),
+    '注意': ('ちゅうい', 'caution; warning', 'N3'),
+    '意': ('い', 'meaning; intention; idea', 'N3'),
+    '意見': ('いけん', 'opinion; view', 'N3'),
+    '意識': ('いしき', 'consciousness; awareness', 'N3'),
+    '理': ('り', 'reason; principle', 'N3'),
+    '理由': ('りゆう', 'reason; cause', 'N3'),
+    '理解': ('りかい', 'understanding; comprehension', 'N3'),
+    '解': ('かい', 'solution; resolution', 'N3'),
+    '判': ('はん', 'judgment; decision', 'N3'),
+    '判断': ('はんだん', 'judgment; decision', 'N3'),
+    '考': ('かんがえ', 'thought; idea; consideration', 'N3'),
+    '考える': ('かんがえる', 'to think; consider', 'N3'),
+    '考え': ('かんがえ', 'thought; idea', 'N3'),
+    '続': ('つづく', 'to continue; last', 'N3'),
+    '続く': ('つづく', 'to continue; last', 'N3'),
+    '続ける': ('つづける', 'to continue; keep on', 'N3'),
+    '継': ('つ ぐ', 'to succeed; inherit', 'N3'),
+    '継ぐ': ('つぐ', 'to succeed; inherit', 'N3'),
+    '受': ('う け', 'to receive; accept', 'N3'),
+    '受ける': ('うける', 'to receive; accept', 'N3'),
+    '受け取': ('うけと る', 'to receive; take', 'N3'),
+    '受け取る': ('うけとる', 'to receive; take', 'N3'),
+    '取': ('と る', 'to take; get', 'N3'),
+    '取る': ('とる', 'to take; get', 'N3'),
+    '取り組': ('とりくみ', 'effort; undertaking', 'N3'),
+    '取り組む': ('とりくむ', 'to tackle; work on', 'N3'),
+    '扱': ('あつか い', 'handling; treatment', 'N3'),
+    '扱い': ('あつかい', 'handling; treatment', 'N3'),
+    '扱う': ('あつかう', 'to handle; treat', 'N3'),
+    '組': ('くみ', 'group; pair; set', 'N3'),
+    '組む': ('くむ', 'to form; combine', 'N3'),
+    '組織': ('そしき', 'organization; system', 'N3'),
+    '構': ('かま え', 'to build; frame', 'N3'),
+    '構える': ('かまえる', 'to set up; establish', 'N3'),
+    '構成': ('こうせい', 'composition; structure', 'N3'),
+    '構造': ('こうぞう', 'structure; construction', 'N3'),
+    '基': ('き', 'basis; foundation', 'N3'),
+    '基本': ('きほん', 'basis; foundation', 'N3'),
+    '基礎': ('きそ', 'foundation; base', 'N3'),
+    '根': ('ね', 'root; base', 'N3'),
+    '根拠': ('こんきょ', 'grounds; basis', 'N3'),
+    '源': ('げん', 'source; origin', 'N3'),
+    '原': ('げん', 'origin; primitive', 'N3'),
+    '原因': ('げんいん', 'cause; reason', 'N3'),
+    '原理': ('げんり', 'principle; law', 'N3'),
+    '原則': ('げんそく', 'principle; rule', 'N3'),
+    '則': ('そく', 'rule; law; standard', 'N3'),
+    '規': ('き', 'rule; law', 'N3'),
+    '規則': ('きそく', 'rule; regulation', 'N3'),
+    '規模': ('きぼ', 'scale; scope', 'N3'),
+    '法': ('ほう', 'law; method', 'N3'),
+    '法律': ('ほうりつ', 'law; legislation', 'N3'),
+    '制': ('せい', 'system; control', 'N3'),
+    '制度': ('せいど', 'system; institution', 'N3'),
+    '制限': ('せいげん', 'restriction; limitation', 'N3'),
+    '限': ('かぎり', 'limit; extent', 'N3'),
+    '限る': ('かぎる', 'to limit; restrict', 'N3'),
+    '限定': ('げんてい', 'limitation; restriction', 'N3'),
+    '度': ('たび', 'degree; time', 'N3'),
+    '度々': ('たびたび', 'frequently; often', 'N3'),
+    '回': ('かい', 'times; rounds', 'N3'),
+    '回数': ('かいすう', 'number of times', 'N3'),
+    '波': ('なみ', 'wave; surge', 'N3'),
+    '流': ('なが れ', 'flow; current', 'N3'),
+    '流れ': ('ながれ', 'flow; current', 'N3'),
+    '流れる': ('ながれる', 'to flow; run', 'N3'),
+    '流す': ('ながす', 'to flow; run', 'N3'),
+    '進': ('すすむ', 'to advance; proceed', 'N3'),
+    '進む': ('すすむ', 'to advance; proceed', 'N3'),
+    '進める': ('すすめる', 'to advance; promote', 'N3'),
+    '進步': ('しんぽ', 'progress; advance', 'N3'),
+    '進展': ('しんてん', 'progress; development', 'N3'),
+    '進化': ('しんか', 'evolution; development', 'N3'),
+    '戻': ('もど る', 'to return; go back', 'N3'),
+    '戻る': ('もどる', 'to return; go back', 'N3'),
+    '戻す': ('もどす', 'to return; restore', 'N3'),
+    '反': ('はん', 'anti-; opposite', 'N3'),
+    '反対': ('はんたい', 'opposition; opposite', 'N3'),
+    '反応': ('はんのう', 'reaction; response', 'N3'),
+    '対': ('たい', 'versus; against', 'N3'),
+    '対応': ('たいおう', 'correspondence; response', 'N3'),
+    '対象': ('たいしょう', 'object; target', 'N3'),
+    '対立': ('たいりつ', 'opposition; confrontation', 'N3'),
+    '対比': ('たいひ', 'comparison; contrast', 'N3'),
+    '比': ('ひ', 'ratio; proportion', 'N3'),
+    '比較': ('ひかく', 'comparison; contrast', 'N3'),
+    '較': ('くら べ', 'to compare; match', 'N3'),
+    '比べる': ('くらべる', 'to compare; match', 'N3'),
+    '向': ('むき', 'direction; facing', 'N3'),
+    '向かう': ('むかう', 'to face; turn towards', 'N3'),
+    '向ける': ('むける', 'to direct; aim', 'N3'),
+    '向こう': ('むこう', 'over there; beyond', 'N3'),
+    '側': ('がわ', 'side; party', 'N3'),
+    '端': ('はし', 'edge; end', 'N3'),
+    '端から': ('はしから', 'from the edge; gradually', 'N3'),
+    '面': ('めん', 'face; surface', 'N3'),
+    '面積': ('めんせき', 'area; surface', 'N3'),
+    '平': ('ひら', 'flat; level', 'N3'),
+    '平ら': ('たいら', 'flat; level', 'N3'),
+    '平均': ('へいきん', 'average; mean', 'N3'),
+    '平面': ('へいめん', 'flat surface; plane', 'N3'),
+    '立': ('たてる', 'to stand; set up', 'N3'),
+    '立てる': ('たてる', 'to stand; set up', 'N3'),
+    '立ち': ('たち', 'standing; action', 'N3'),
+    '立ち上': ('たちあ がる', 'to stand up; rise', 'N3'),
+    '立ち上がる': ('たちあがる', 'to stand up; rise', 'N3'),
 }
 
 # ============================================================================
@@ -684,6 +838,7 @@ def extract_kanji(tokens_with_types: List[Tuple[str, str]]) -> List[str]:
 def get_vocabulary_info(word: str) -> Optional[Tuple[str, str, str]]:
     """
     查詢詞彙的讀音、翻譯和 JLPT 等級
+    優先使用 JMdict，備用本地詞彙數據庫
     
     Args:
         word: 日文詞彙
@@ -691,14 +846,56 @@ def get_vocabulary_info(word: str) -> Optional[Tuple[str, str, str]]:
     Returns:
         (讀音, 翻譯, 等級) 元組，查不到返回 None
     """
+    # 檢查緩存
+    if word in _vocabulary_cache:
+        return _vocabulary_cache[word]
+    
+    result = None
+    
+    # 首先嘗試 JMdict
+    jam = get_jamdict_instance()
+    if jam:
+        try:
+            entries = jam.lookup(word)
+            if entries and len(entries) > 0:
+                entry = entries[0]
+                # 提取讀音
+                reading = ''
+                if hasattr(entry, 'kana_form') and entry.kana_form:
+                    reading = entry.kana_form
+                elif hasattr(entry, 'readings') and entry.readings:
+                    reading = entry.readings[0] if entry.readings else ''
+                
+                # 提取翻譯
+                translation = ''
+                if hasattr(entry, 'definitions') and entry.definitions:
+                    # 合併前 3 個定義
+                    translation = '; '.join(entry.definitions[:3])
+                
+                # 嘗試從 JMdict 中提取 JLPT 級別
+                level = 'N1'  # 預設為最高級
+                if hasattr(entry, 'jlpt') and entry.jlpt:
+                    level = f'N{entry.jlpt}'
+                
+                result = (reading, translation, level)
+                _vocabulary_cache[word] = result
+                return result
+        except Exception as e:
+            logger.debug(f"JMdict 查詢失败（{word}）：{e}")
+    
+    # 備用：本地詞彙數據庫
     if word in VOCABULARY_DATABASE:
-        return VOCABULARY_DATABASE[word]
+        result = VOCABULARY_DATABASE[word]
+        _vocabulary_cache[word] = result
+        return result
+    
     return None
 
 
 def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Dict[str, Dict]:
     """
     從 token 列表中提取完整詞彙及其翻譯信息
+    使用改進的 get_vocabulary_info() 函數
     
     Args:
         tokens_with_types: [(token, type), ...] 列表
@@ -712,7 +909,7 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
         if token_type == 'kanji':
             # 避免重複
             if token not in vocabulary:
-                # 查詢詞彙數據庫
+                # 查詢詞彙數據庫（現在支持 JMdict）
                 info = get_vocabulary_info(token)
                 if info:
                     reading, translation, level = info
