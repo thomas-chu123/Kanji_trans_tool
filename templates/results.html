@@ -105,6 +105,77 @@
                 </div>
                 {% endif %}
 
+                <!-- 單字和文法部分 -->
+                {% if vocab_count > 0 or grammar_count > 0 %}
+                <div class="mb-6">
+                    <!-- 單字部分 -->
+                    {% if vocab_count > 0 %}
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-bold text-gray-600">📚 詞彙 ({{ vocab_count }} 個)</h3>
+                            <select id="vocabLevelFilter" onchange="filterVocabDisplay()" 
+                                    class="px-3 py-1 bg-indigo-100 text-indigo-700 rounded font-semibold text-xs cursor-pointer">
+                                <option value="N1">N1 (全部)</option>
+                                <option value="N2">N2 及以下</option>
+                                <option value="N3">N3 及以下</option>
+                                <option value="N4">N4 及以下</option>
+                                <option value="N5" selected>N5</option>
+                            </select>
+                        </div>
+                        <div id="vocabContainer" class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg border-2 border-blue-200 space-y-3">
+                            {% for level in ['N5', 'N4', 'N3', 'N2', 'N1'] %}
+                                {% if vocab_by_level[level] %}
+                                <div class="vocab-level-group" data-level="{{ level }}">
+                                    {% for word in vocab_by_level[level] %}
+                                        {% set info = vocabulary_with_info[word] %}
+                                    <div class="vocab-item inline-block px-4 py-3 bg-white rounded-lg border-2 border-blue-300 shadow-md hover:shadow-lg hover:border-blue-500 transition mr-3 mb-3"
+                                         data-word="{{ word }}" data-level="{{ level }}" title="JLPT {{ level }}">
+                                        <div class="font-bold text-base text-blue-700">{{ word }}</div>
+                                        <div class="text-xs text-gray-600 mt-1">{{ info.reading }}</div>
+                                        <div class="text-xs text-gray-700 font-semibold mt-1">{{ info.translation }}</div>
+                                        <span class="inline-block text-xs text-white bg-blue-500 rounded px-2 py-1 mt-2">{{ level }}</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- 文法部分 -->
+                    {% if grammar_count > 0 %}
+                    <div class="mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-sm font-bold text-gray-600">📖 文法 ({{ grammar_count }} 個)</h3>
+                            <select id="grammarLevelFilter" onchange="filterGrammarDisplay()" 
+                                    class="px-3 py-1 bg-green-100 text-green-700 rounded font-semibold text-xs cursor-pointer">
+                                <option value="N1">N1 (全部)</option>
+                                <option value="N2">N2 及以下</option>
+                                <option value="N3">N3 及以下</option>
+                                <option value="N4">N4 及以下</option>
+                                <option value="N5" selected>N5</option>
+                            </select>
+                        </div>
+                        <div id="grammarContainer" class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg border-2 border-green-200 flex flex-wrap gap-3">
+                            {% for level in ['N5', 'N4', 'N3', 'N2', 'N1'] %}
+                                {% if grammar_by_level[level] %}
+                                <div class="grammar-level-group" data-level="{{ level }}">
+                                    {% for grammar in grammar_by_level[level] %}
+                                    <span class="grammar-item inline-flex items-center px-4 py-2 bg-white rounded-lg border-2 border-green-300 text-sm font-bold text-green-700 shadow-md hover:shadow-lg hover:border-green-500 transition cursor-default"
+                                          data-grammar="{{ grammar }}" data-level="{{ level }}" title="JLPT {{ level }}">
+                                        {{ grammar }}<span class="text-xs text-green-500 ml-2">({{ level }})</span>
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+
                 <!-- 提示信息 -->
                 <div class="bg-blue-100 border-l-4 border-blue-600 p-4 rounded text-sm text-blue-800">
                     <p><strong>💡 提示：</strong>上方小字是假名讀音，下方是便於打字的羅馬音</p>
@@ -652,6 +723,55 @@
         }
     }
 
+    // ========================================
+    // 單字和文法等級過濾功能
+    // ========================================
+    
+    // JLPT 等級順序 (低到高)
+    const levelOrder = { 'N5': 0, 'N4': 1, 'N3': 2, 'N2': 3, 'N1': 4 };
+    
+    // 過濾詞彙顯示
+    function filterVocabDisplay() {
+        const filterSelect = document.getElementById('vocabLevelFilter');
+        const selectedLevel = filterSelect.value;
+        const selectedLevelValue = levelOrder[selectedLevel];
+        
+        const vocabItems = document.querySelectorAll('.vocab-item');
+        
+        vocabItems.forEach(item => {
+            const itemLevel = item.getAttribute('data-level');
+            const itemLevelValue = levelOrder[itemLevel];
+            
+            // 如果所选等级包含该词汇，显示；否则隐藏
+            if (itemLevelValue <= selectedLevelValue) {
+                item.style.display = 'inline-block';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+    
+    // 過濾文法顯示
+    function filterGrammarDisplay() {
+        const filterSelect = document.getElementById('grammarLevelFilter');
+        const selectedLevel = filterSelect.value;
+        const selectedLevelValue = levelOrder[selectedLevel];
+        
+        const grammarItems = document.querySelectorAll('.grammar-item');
+        
+        grammarItems.forEach(item => {
+            const itemLevel = item.getAttribute('data-level');
+            const itemLevelValue = levelOrder[itemLevel];
+            
+            // 如果所选等级包含该文法，显示；否则隐藏
+            if (itemLevelValue <= selectedLevelValue) {
+                item.style.display = 'inline-flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
     // 頁面加載完成後初始化
     window.addEventListener('DOMContentLoaded', () => {
         const slider = document.getElementById('speedSlider');
@@ -669,6 +789,10 @@
                 updateSpeedLabel();
             });
         }
+        
+        // 初始化等級過濾（默認 N5）
+        filterVocabDisplay();
+        filterGrammarDisplay();
     });
 </script>
 {% endblock %}

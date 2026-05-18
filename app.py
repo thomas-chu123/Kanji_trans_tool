@@ -20,6 +20,10 @@ from starlette.middleware.cors import CORSMiddleware
 from processors.furigana import initialize_kakasi, process_text, generate_ruby_html
 from processors import storage
 from processors.translator import translate_to_chinese, initialize_translator
+from processors.jlpt_level import (
+    get_kanji_level, get_grammar_level, extract_kanji, extract_grammatical_patterns,
+    extract_vocabulary_with_info, categorize_by_level
+)
 from db.init_db import init_database
 
 # 配置日誌
@@ -171,6 +175,27 @@ async def results(request: Request, translation_id: int):
         # 解析 processed_data
         processed_data = json.loads(record["processed_data"]) if record["processed_data"] else []
         
+        # 提取單字和文法，並獲取 JLPT 等級
+        tokens_with_types = [(token["original"], token["type"]) for token in processed_data]
+        
+        # 提取詞彙及其翻譯信息
+        vocabulary_with_info = extract_vocabulary_with_info(tokens_with_types)
+        
+        # 構建 {詞: 等級} 字典用於過濾
+        vocabulary_levels = {word: info['level'] for word, info in vocabulary_with_info.items()}
+        
+        # 提取文法模式及其等級
+        grammar_patterns = extract_grammatical_patterns(tokens_with_types)
+        grammar_with_levels = {}
+        for pattern in grammar_patterns:
+            level = get_grammar_level(pattern)
+            if level:
+                grammar_with_levels[pattern] = level
+        
+        # 按等級分類
+        vocab_by_level = categorize_by_level(vocabulary_levels)
+        grammar_by_level = categorize_by_level(grammar_with_levels)
+        
         return templates.TemplateResponse("results.html", {
             "request": request,
             "translation_id": record["id"],
@@ -181,7 +206,14 @@ async def results(request: Request, translation_id: int):
             "is_favorite": bool(record.get("is_favorite", 0)),
             "notes": record.get("notes", ""),
             "input_text_length": len(record["input_text"]),
-            "token_count": len(processed_data)
+            "token_count": len(processed_data),
+            # 新增：詞彙和文法數據（包含翻譯）
+            "vocabulary_with_info": vocabulary_with_info,
+            "grammar_with_levels": grammar_with_levels,
+            "vocab_by_level": vocab_by_level,
+            "grammar_by_level": grammar_by_level,
+            "vocab_count": len(vocabulary_with_info),
+            "grammar_count": len(grammar_with_levels)
         })
     except HTTPException:
         raise
@@ -291,6 +323,8 @@ async def convert_text(
             }
             for token in processed_data
         ]
+        
+        logger.info(f"✓ 提取詞彙: {len(processed_data)} 個")
         
         # 保存到數據庫
         translation_id = storage.save_translation(
