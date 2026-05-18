@@ -15,6 +15,15 @@ import threading
 
 logger = logging.getLogger(__name__)
 
+# 導入翻譯模組（用於未知詞彙的中文翻譯）
+def get_translator_instance():
+    """獲取翻譯器實例"""
+    try:
+        from processors.translator import _translator
+        return _translator
+    except:
+        return None
+
 # ============================================================================
 # 全局 jamdict 實例和緩存
 # ============================================================================
@@ -835,16 +844,52 @@ def extract_kanji(tokens_with_types: List[Tuple[str, str]]) -> List[str]:
     return list(set(vocab_list))  # 去重
 
 
-def get_vocabulary_info(word: str) -> Optional[Tuple[str, str, str]]:
+_translation_cache_temp = {}  # 臨時翻譯快取
+
+
+def _translate_to_chinese(text: str) -> str:
     """
-    查詢詞彙的讀音、翻譯和 JLPT 等級
+    將文本翻譯為中文（繁體）
+    使用快取以提高性能
+    
+    Args:
+        text: 日文或其他語言文本
+        
+    Returns:
+        中文翻譯，如果失敗則返回原文
+    """
+    if not text or not text.strip():
+        return text
+    
+    # 檢查快取
+    if text in _translation_cache_temp:
+        return _translation_cache_temp[text]
+    
+    try:
+        from processors.translator import translate_to_chinese
+        result = translate_to_chinese(text, use_cache=True)
+        if result and result != text:
+            _translation_cache_temp[text] = result
+            return result
+        else:
+            return text
+    except Exception as e:
+        logger.debug(f"翻譯失败（{text}）：{e}")
+        return text
+
+
+def get_vocabulary_info(word: str, attempt_translation: bool = True) -> Optional[Tuple[str, str, str]]:
+    """
+    查詢詞彙的讀音、翻譯(中文)和 JLPT 等級
     優先使用 JMdict，備用本地詞彙數據庫
+    翻譯將自動轉換為繁體中文
     
     Args:
         word: 日文詞彙
+        attempt_translation: 是否嘗試翻譯未知詞彙
         
     Returns:
-        (讀音, 翻譯, 等級) 元組，查不到返回 None
+        (讀音, 中文翻譯, 等級) 元組，查不到返回 None
     """
     # 檢查緩存
     if word in _vocabulary_cache:
@@ -866,11 +911,13 @@ def get_vocabulary_info(word: str) -> Optional[Tuple[str, str, str]]:
                 elif hasattr(entry, 'readings') and entry.readings:
                     reading = entry.readings[0] if entry.readings else ''
                 
-                # 提取翻譯
+                # 提取翻譯（從英文翻譯為中文）
                 translation = ''
                 if hasattr(entry, 'definitions') and entry.definitions:
-                    # 合併前 3 個定義
-                    translation = '; '.join(entry.definitions[:3])
+                    # 獲取前 2 個英文定義
+                    eng_translations = '; '.join(entry.definitions[:2])
+                    # 翻譯為中文
+                    translation = _translate_to_chinese(eng_translations)
                 
                 # 嘗試從 JMdict 中提取 JLPT 級別
                 level = 'N1'  # 預設為最高級
@@ -885,9 +932,20 @@ def get_vocabulary_info(word: str) -> Optional[Tuple[str, str, str]]:
     
     # 備用：本地詞彙數據庫
     if word in VOCABULARY_DATABASE:
-        result = VOCABULARY_DATABASE[word]
+        reading, eng_translation, level = VOCABULARY_DATABASE[word]
+        # 將本地數據庫的英文翻譯轉換為中文
+        cn_translation = _translate_to_chinese(eng_translation)
+        result = (reading, cn_translation, level)
         _vocabulary_cache[word] = result
         return result
+    
+    # 如果啟用翻譯並且找不到，嘗試翻譯該詞彙
+    if attempt_translation:
+        cn_translation = _translate_to_chinese(word)
+        if cn_translation != word:  # 翻譯成功
+            result = ('', cn_translation, 'N1')
+            _vocabulary_cache[word] = result
+            return result
     
     return None
 
@@ -896,6 +954,12 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
     """
     從 token 列表中提取完整詞彙及其翻譯信息
     使用改進的 get_vocabulary_info() 函數
+    支持多種詞彙類型（kanji、hiragana、katakana）
+    
+    策略：
+    1. 優先查詢完整組合詞彙
+    2. 對找不到的詞彙進行中文翻譯
+    3. 使用智能 token 合併邏輯
     
     Args:
         tokens_with_types: [(token, type), ...] 列表
@@ -904,26 +968,69 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
         {詞: {reading, translation, level}} 字典
     """
     vocabulary = {}
+    i = 0
     
-    for token, token_type in tokens_with_types:
+    while i < len(tokens_with_types):
+        token, token_type = tokens_with_types[i]
+        
+        # 跳過符號和其他非詞彙類型
+        if token_type not in ['kanji', 'hiragana', 'katakana']:
+            i += 1
+            continue
+        
+        # 嘗試組合相鄰的 tokens 形成更完整的詞彙
+        combined_token = token
+        j = i + 1
+        attempts = []  # 紀錄所有可能的組合
+        
+        # 如果當前是 kanji，嘗試與後面的 hiragana/katakana 組合
         if token_type == 'kanji':
-            # 避免重複
-            if token not in vocabulary:
-                # 查詢詞彙數據庫（現在支持 JMdict）
-                info = get_vocabulary_info(token)
-                if info:
-                    reading, translation, level = info
-                    vocabulary[token] = {
-                        'reading': reading,
-                        'translation': translation,
-                        'level': level
-                    }
+            while j < len(tokens_with_types):
+                next_token, next_type = tokens_with_types[j]
+                if next_type in ['hiragana', 'katakana']:
+                    combined_token += next_token
+                    attempts.append((combined_token, j))
+                    j += 1
                 else:
-                    # 如果找不到，盡量使用默認值
-                    vocabulary[token] = {
-                        'reading': '',
-                        'translation': '(未知詞彙)',
-                        'level': 'N1'  # 預設為最高級
-                    }
+                    break
+        
+        # 嘗試按照從最長到最短的順序查詢詞彙
+        attempts.append((combined_token, i))
+        found = False
+        final_j = i + 1
+        
+        for attempt_token, attempt_j in reversed(attempts):
+            # 避免重複
+            if attempt_token in vocabulary:
+                found = True
+                final_j = attempt_j + 1
+                break
+            
+            # 查詢詞彙數據庫（優先使用 JMdict，會自動翻譯為中文）
+            info = get_vocabulary_info(attempt_token, attempt_translation=True)
+            
+            if info:
+                reading, translation, level = info
+                vocabulary[attempt_token] = {
+                    'reading': reading,
+                    'translation': translation,
+                    'level': level
+                }
+                found = True
+                final_j = attempt_j + 1
+                break
+        
+        # 如果找不到任何匹配，使用基礎 token 進行翻譯
+        if not found and token not in vocabulary:
+            cn_translation = _translate_to_chinese(token)
+            vocabulary[token] = {
+                'reading': '',
+                'translation': cn_translation if cn_translation != token else f'({token})',
+                'level': 'N1'  # 預設為最高級
+            }
+            final_j = i + 1
+        
+        # 移動到下一個未處理的 token
+        i = final_j
     
     return vocabulary
