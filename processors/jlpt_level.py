@@ -845,6 +845,7 @@ def extract_kanji(tokens_with_types: List[Tuple[str, str]]) -> List[str]:
 
 
 _translation_cache_temp = {}  # 臨時翻譯快取
+_batch_translations = {}  # 批量翻譯快取
 
 
 def _translate_to_chinese(text: str) -> str:
@@ -876,6 +877,42 @@ def _translate_to_chinese(text: str) -> str:
     except Exception as e:
         logger.debug(f"翻譯失败（{text}）：{e}")
         return text
+
+
+def _translate_batch_to_chinese(texts: List[str]) -> Dict[str, str]:
+    """
+    批量翻譯多個文本為中文（繁體）
+    使用並行翻譯以提高性能
+    
+    Args:
+        texts: 日文或其他語言文本列表
+        
+    Returns:
+        {原文: 翻譯} 字典
+    """
+    if not texts:
+        return {}
+    
+    # 過濾空字符串
+    texts = [t for t in texts if t and t.strip()]
+    if not texts:
+        return {}
+    
+    try:
+        from processors.translator import translate_batch
+        results = translate_batch(texts, use_cache=True)
+        
+        # 保存到快取
+        for text, translation in results.items():
+            if translation and translation != text:
+                _translation_cache_temp[text] = translation
+            else:
+                _translation_cache_temp[text] = text
+        
+        return {text: _translation_cache_temp.get(text, text) for text in texts}
+    except Exception as e:
+        logger.warning(f"批量翻譯失败：{e}")
+        return {text: text for text in texts}
 
 
 def get_vocabulary_info(word: str, attempt_translation: bool = True) -> Optional[Tuple[str, str, str]]:
@@ -958,7 +995,7 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
     
     策略：
     1. 優先查詢完整組合詞彙
-    2. 對找不到的詞彙進行中文翻譯
+    2. 對找不到的詞彙進行批量中文翻譯（並行處理）
     3. 使用智能 token 合併邏輯
     
     Args:
@@ -968,6 +1005,7 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
         {詞: {reading, translation, level}} 字典
     """
     vocabulary = {}
+    unknown_words = []  # 需要翻譯的未知詞彙
     i = 0
     
     while i < len(tokens_with_types):
@@ -1006,8 +1044,8 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
                 final_j = attempt_j + 1
                 break
             
-            # 查詢詞彙數據庫（優先使用 JMdict，會自動翻譯為中文）
-            info = get_vocabulary_info(attempt_token, attempt_translation=True)
+            # 查詢詞彙數據庫（優先使用 JMdict）
+            info = get_vocabulary_info(attempt_token, attempt_translation=False)
             
             if info:
                 reading, translation, level = info
@@ -1019,18 +1057,25 @@ def extract_vocabulary_with_info(tokens_with_types: List[Tuple[str, str]]) -> Di
                 found = True
                 final_j = attempt_j + 1
                 break
-        
-        # 如果找不到任何匹配，使用基礎 token 進行翻譯
-        if not found and token not in vocabulary:
-            cn_translation = _translate_to_chinese(token)
-            vocabulary[token] = {
-                'reading': '',
-                'translation': cn_translation if cn_translation != token else f'({token})',
-                'level': 'N1'  # 預設為最高級
-            }
-            final_j = i + 1
+            else:
+                # 記錄未知詞彙以便批量翻譯
+                unknown_words.append(attempt_token)
         
         # 移動到下一個未處理的 token
         i = final_j
+    
+    # 批量翻譯所有未知詞彙
+    if unknown_words:
+        logger.debug(f"準備批量翻譯 {len(unknown_words)} 個未知詞彙...")
+        batch_results = _translate_batch_to_chinese(list(set(unknown_words)))
+        
+        for word in set(unknown_words):
+            if word not in vocabulary:  # 確保不重複
+                cn_translation = batch_results.get(word, word)
+                vocabulary[word] = {
+                    'reading': '',
+                    'translation': cn_translation if cn_translation != word else f'({word})',
+                    'level': 'N1'  # 預設為最高級
+                }
     
     return vocabulary
